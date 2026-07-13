@@ -4,7 +4,7 @@
    - body.is-transitioning: transicoes imersivas em andamento (evitar input)
    - body.is-project-open: modal/projeto aberto
    - body.modal-open: trava scroll no mobile
-   Dependencias: fonte "Zero Hour", cursor em ./assets/cursor/cursor.png,
+    Dependencias: fonte "Zero Hour", cursor em ./assets/cursor/cursor-ready-small.png,
    sons em ./sounds/ambient.mp3, ./sounds/hover.mp3, ./sounds/click.mp3
    Scroll thresholds: hero -> sobre -> contato -> projetos (ver "SCROLL CONTROL")
    Mobile vs desktop: mobile desliga ripple/tilt e usa parallax leve + layout single column
@@ -49,8 +49,10 @@ const isTouch =
     ("ontouchstart" in window) ||
     (navigator.maxTouchPoints && navigator.maxTouchPoints > 0);
 const isMobile = window.matchMedia("(max-width: 768px)").matches;
-const isMobileUI = isTouch || isMobile;
+const isMobileUI = isMobile;
 document.documentElement.classList.toggle("is-touch", isTouch);
+
+
 
 const canvasTheme = {
     accentRgb: "0, 255, 255",
@@ -99,7 +101,7 @@ themeObserver.observe(document.documentElement, {
    AUDIO
 ========================= */
 // Botao "Som" dentro da navbar (unico controle visivel de audio).
-const navSound = document.querySelector('.nav-tech [data-nav="sound"]');
+const navSound = document.querySelector('.half-ring-nav [data-nav="sound"]');
 const ambient = new Audio("sounds/ambient.mp3");
 const sfxHover = new Audio("sounds/hover.mp3");
 const sfxClick = new Audio("sounds/click.mp3");
@@ -145,8 +147,9 @@ const CLICK_SFX_COOLDOWN = 90;
 const updateSoundToggle = () => {
     const isOn = !audioMuted;
     if (navSound) {
-        // Mantem feedback do estado no unico controle visivel (navbar).
-        navSound.textContent = `Som: ${isOn ? "ON" : "OFF"}`;
+        navSound.classList.toggle("is-muted", !isOn);
+        const label = navSound.querySelector(".half-ring-nav__slice-label");
+        if (label) label.textContent = isOn ? "Som" : "Mudo";
         navSound.setAttribute("aria-pressed", String(isOn));
     }
 };
@@ -612,7 +615,8 @@ function drawWireframeText(opacity) {
     /* Efeito liquid text no título hero */
     if (heroTextLiquidActive) {
         const elapsed = Date.now() - heroLiquidStartTime;
-        const progress = (elapsed % HERO_LIQUID_DURATION) / HERO_LIQUID_DURATION;
+        const rawProgress = (elapsed % HERO_LIQUID_DURATION) / HERO_LIQUID_DURATION;
+        const progress = 1 - Math.pow(1 - rawProgress, 5);
         
         const textMetrics = octx.measureText(heroLabel);
         const textWidth = textMetrics.width;
@@ -637,14 +641,20 @@ function drawWireframeText(opacity) {
         gradient.addColorStop(0.75, `rgba(${r},${g},${b},0.4)`);
         gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
     
+        /* Fade suave: aparece nos primeiros 20%, some nos últimos 20% */
+        const fade = rawProgress < 0.2
+            ? rawProgress / 0.2
+            : rawProgress > 0.8
+                ? (1 - rawProgress) / 0.2
+                : 1;
         
         /* Desenha o efeito com fillText para mais impacto */
-        octx.globalAlpha = opacity * 0.9;
+        octx.globalAlpha = opacity * 0.9 * fade;
         octx.fillStyle = gradient;
         octx.fillText(heroLabel, textX, textY);
         
         /* Adiciona contorno brilhante */
-        octx.globalAlpha = opacity * 0.7;
+        octx.globalAlpha = opacity * 0.7 * fade;
         octx.strokeStyle = gradient;
         octx.lineWidth = scaledSize * 0.08;
         octx.strokeText(heroLabel, textX, textY);
@@ -679,6 +689,8 @@ const renderStars = () => {
  */
 function animate() {
     try {
+        if (document.hidden) { return; }
+
         const k = warpTarget > warp ? WARP_IN : WARP_OUT;
         warp += (warpTarget - warp) * k;
         if (warp < 0.001) warp = 0;
@@ -731,96 +743,127 @@ const playHoverSfx = () => {
     sfxHover.play().catch(() => {});
 };
 
-if (isMobileUI) {
-    let mpx = 0.5;
-    let mpy = 0.5;
-    let parallaxRAF = null;
-    let lastTouchTs = 0;
 
-    /**
-     * Aplica parallax leve aos cards visiveis com base na posicao do toque e na tela.
-     */
-    function applyMobileParallax() {
-        parallaxRAF = null;
-        document.querySelectorAll(".project-card.in-view").forEach((card, idx) => {
-            const rect = card.getBoundingClientRect();
-            const cx = rect.left + rect.width * 0.5;
-            const cy = rect.top + rect.height * 0.5;
-            const vx = cx / innerWidth - 0.5;
-            const vy = cy / innerHeight - 0.5;
-            const maxX = 6;
-            const maxY = 6;
-            const baseX = (mpx - 0.5) * 0.6 + vx * 0.4;
-            const baseY = (mpy - 0.5) * 0.6 + vy * 0.4;
-            const jitter = (idx % 3 - 1) * 0.2;
-            const px = (baseX * maxX * 2) + jitter;
-            const py = (baseY * maxY * 2) - jitter;
-            card.style.setProperty("--mx", `${px.toFixed(2)}px`);
-            card.style.setProperty("--my", `${py.toFixed(2)}px`);
-        });
-    }
 
-    /**
-     * Garante no maximo um frame pendente para o parallax mobile.
-     */
-    function scheduleMobileParallax() {
-        if (parallaxRAF) return;
-        parallaxRAF = requestAnimationFrame(applyMobileParallax);
-    }
 
-    window.addEventListener("touchstart", (e) => {
-        if (!e.touches || !e.touches[0]) return;
-        mpx = e.touches[0].clientX / innerWidth;
-        mpy = e.touches[0].clientY / innerHeight;
-        lastTouchTs = performance.now();
-        scheduleMobileParallax();
-    }, { passive: true });
-
-    window.addEventListener("touchmove", (e) => {
-        if (!e.touches || !e.touches[0]) return;
-        mpx = e.touches[0].clientX / innerWidth;
-        mpy = e.touches[0].clientY / innerHeight;
-        lastTouchTs = performance.now();
-        scheduleMobileParallax();
-    }, { passive: true });
-
-    window.addEventListener("scroll", () => {
-        if (performance.now() - lastTouchTs < 200) return;
-        mpy = 0.45 + (window.scrollY % innerHeight) / innerHeight * 0.1;
-        scheduleMobileParallax();
-    }, { passive: true });
-
-    const cards = Array.from(projectCards);
-    const observer = new IntersectionObserver((entries, obs) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            entry.target.classList.add("in-view");
-            scheduleMobileParallax();
-            obs.unobserve(entry.target);
-        });
-    }, { threshold: 0.25, rootMargin: "0px 0px -10% 0px" });
-    cards.forEach(card => observer.observe(card));
-}
 /* =========================
-   RIPPLE EFFECT (HOVER)
+   MARQUEE INFINITO
 ========================= */
-if (!isMobileUI) {
-    projectCards.forEach(card => {
-        card.addEventListener("mouseenter", e => {
-            const ripple = document.createElement("span");
-            ripple.classList.add("ripple");
+const marqueeTrack = document.querySelector('.marquee-track');
+const projectsGrid = document.querySelector('.projects-grid');
 
+/**
+ * Clona os cards para criar o loop infinito do marquee.
+ * Cada card original vira dois na track (original + clone).
+ */
+function setupMarquee() {
+    if (!marqueeTrack) return;
+    const cards = Array.from(marqueeTrack.children);
+
+    /* Adiciona estado de loading (skeleton shimmer) */
+    cards.forEach(card => card.classList.add("loading"));
+
+    cards.forEach(card => {
+        const clone = card.cloneNode(true);
+        marqueeTrack.appendChild(clone);
+    });
+
+    /* Remove loading quando as imagens tiverem carregado */
+    let loadedCount = 0;
+    const total = cards.length;
+    cards.forEach(card => {
+        const bg = window.getComputedStyle(card.querySelector(".card-front")).backgroundImage;
+        const match = bg.match(/url\(["']?([^"')]+)["']?\)/);
+        if (match) {
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                loadedCount++;
+                if (loadedCount >= total && marqueeTrack) {
+                    marqueeTrack.querySelectorAll(".project-card.loading").forEach(c => c.classList.remove("loading"));
+                }
+            };
+            img.src = match[1];
+        } else {
+            loadedCount++;
+            if (loadedCount >= total && marqueeTrack) {
+                marqueeTrack.querySelectorAll(".project-card.loading").forEach(c => c.classList.remove("loading"));
+            }
+        }
+    });
+
+    /* Fallback: remove loading após 5s mesmo que as imagens não carreguem */
+    setTimeout(() => {
+        if (marqueeTrack) {
+            marqueeTrack.querySelectorAll(".project-card.loading").forEach(c => c.classList.remove("loading"));
+        }
+    }, 5000);
+}
+setupMarquee();
+
+/**
+ * Event delegation para interacoes com cards no marquee.
+ * Funciona tanto para cards originais quanto para os clones.
+ */
+if (marqueeTrack) {
+    /* Click: abre o projeto */
+    marqueeTrack.addEventListener('click', e => {
+        const card = e.target.closest('.project-card');
+        if (!card) return;
+        if (!projects || projects.classList.contains('hidden') || document.body.classList.contains('is-transitioning')) {
+            e.preventDefault();
+            return;
+        }
+        if (!audioMuted && audioArmed) {
+            sfxClick.currentTime = 0;
+            sfxClick.play().catch(() => {});
+        }
+        e.preventDefault();
+        openProject(card);
+    });
+
+    /* Hover sfx + ripple (mouseover para funcionar com delegacao) */
+    marqueeTrack.addEventListener('mouseover', e => {
+        const card = e.target.closest('.project-card');
+        if (!card) return;
+        const related = e.relatedTarget;
+        if (related && card.contains(related)) return;
+
+        playHoverSfx();
+
+        if (!isMobileUI) {
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
             const rect = card.getBoundingClientRect();
             const size = Math.max(rect.width, rect.height);
-
             ripple.style.width = ripple.style.height = `${size}px`;
             ripple.style.left = `${e.clientX - rect.left}px`;
             ripple.style.top = `${e.clientY - rect.top}px`;
-
             card.appendChild(ripple);
             setTimeout(() => ripple.remove(), 800);
-        });
+        }
     });
+
+}
+
+/* Pausa o marquee no toque (mobile) */
+if (marqueeTrack && projectsGrid && isMobileUI) {
+    let marqueeTimer = null;
+
+    const pauseMarquee = () => {
+        projectsGrid.classList.add('paused');
+        if (marqueeTimer) clearTimeout(marqueeTimer);
+    };
+
+    const resumeMarquee = () => {
+        if (marqueeTimer) clearTimeout(marqueeTimer);
+        marqueeTimer = setTimeout(() => {
+            projectsGrid.classList.remove('paused');
+        }, 3000);
+    };
+
+    projectsGrid.addEventListener('touchstart', pauseMarquee, { passive: true });
+    projectsGrid.addEventListener('touchend', resumeMarquee, { passive: true });
+    projectsGrid.addEventListener('touchcancel', resumeMarquee, { passive: true });
 }
 
 // Mantem .active em sincronia com .hidden (CSS usa ambos).
@@ -843,23 +886,28 @@ const setProjectsVisibility = (show) => {
 /* =========================
    SCROLL CONTROL (UNICO)
 ========================= */
+/* Scroll progress bar */
+const scrollProgressBar = document.getElementById("scrollProgressBar");
+const backToTopBtn = document.getElementById("backToTop");
+
 window.addEventListener("scroll", () => {
     const scroll = window.scrollY;
     const total = document.documentElement.scrollHeight;
     const H = window.innerHeight;
     const { heroEnd, sobreEnd, contatoEnd, projectsEnd } = getScrollRanges();
 
-    // Cria scroll circular no desktop para manter a navegacao continua entre secoes.
-    if (!isMobileUI) {
-        if (scroll + H >= total - 5) {
-            ignoreNextImpulse = true;
-            window.scrollTo(0, 5);
-        }
-        if (scroll <= 0) {
-            ignoreNextImpulse = true;
-            window.scrollTo(0, total - H - 10);
-        }
+    /* Atualiza barra de progresso */
+    if (scrollProgressBar) {
+        const pct = total > H ? scroll / (total - H) : 0;
+        scrollProgressBar.style.transform = `scaleX(${Math.min(pct, 1)})`;
     }
+
+    /* Back-to-top visibility */
+    if (backToTopBtn) {
+        backToTopBtn.classList.toggle("is-visible", scroll > H);
+    }
+
+    // Scroll circular desativado temporariamente
 
     if (ignoreNextImpulse) {
         ignoreNextImpulse = false;
@@ -935,25 +983,18 @@ window.addEventListener("scroll", () => {
     lastScrollT = now;
 });
 
-/* =========================
-   POINTER TRACKING (PARALLAX CARDS)
-========================= */
-if (!isMobileUI) {
-    projectCards.forEach(card => {
-        card.addEventListener("mousemove", e => {
-            card.style.setProperty("--mx", `${e.clientX}px`);
-            card.style.setProperty("--my", `${e.clientY}px`);
-        });
+
+
+/* Back-to-top click */
+if (backToTopBtn) {
+    backToTopBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
     });
 }
 
 /* =========================
    PROJECT VIEW + IMMERSIVE TRANSITION
 ========================= */
-const TRANSITION_MS = 900;
-const CLONE_EXTRA_MS = 500;
-const CLONE_TRANSITION_MS = TRANSITION_MS + CLONE_EXTRA_MS;
-const CLONE_CLOSE_MS = 950;
 const projectView = document.getElementById("projectView");
 const projectPanel = projectView?.querySelector(".project-view__panel");
 const projectHero = projectView?.querySelector(".project-view__hero");
@@ -967,7 +1008,6 @@ const projectBackdrop = projectView?.querySelector(".project-view__backdrop");
 const focusVignette = document.getElementById("focusVignette");
 
 let activeCard = null;
-let activeCardRect = null;
 let activeProject = null;
 let tiltActive = false;
 let tiltFrame = null;
@@ -979,10 +1019,6 @@ let tiltCurrentRx = 0;
 let tiltCurrentRy = 0;
 let tiltCurrentMx = 50;
 let tiltCurrentMy = 50;
-
-const setActiveCardHidden = (hidden) => {
-    activeCard?.classList.toggle("is-source-hidden", hidden);
-};
 
 /**
  * Extrai os dados exibidos em um card para preencher a visualizacao expandida.
@@ -1118,34 +1154,21 @@ const stopPanelTilt = () => {
 
 
 /**
- * Abre a visualizacao detalhada do projeto.
- * No mobile a abertura e direta; no desktop existe uma transicao cinematografica com clone do card.
+ * Abre a visualizacao detalhada do projeto diretamente (sem animacao de clone).
  *
  * @param {Element} card
  */
-const openProject = (card) => {
-    if (!projectView || document.body.classList.contains("is-transitioning")) return;
+const applyOpenProject = (card) => {
+    activeCard = card;
+    activeProject = extractProjectData(card);
+    setProjectViewContent(activeProject);
 
-    if (isMobileUI) {
-        activeCard = card;
-        activeProject = extractProjectData(card);
-        setProjectViewContent(activeProject);
-        projectView.classList.add("is-open");
-        projectView.setAttribute("aria-hidden", "false");
-        document.body.classList.add("is-project-open", "modal-open");
-        starCinematicLock = true;
-        starsFreeze = true;
-        starsImpulseEnabled = false;
-        scrollImpulse = 0;
-        scrollImpulseTarget = 0;
-        warpTarget = 0;
-        warp = 0;
-        lastScrollY = window.scrollY;
-        lastScrollT = performance.now();
-        return;
-    }
+    projectView.classList.add("is-open");
+    projectView.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-project-open", "modal-open");
+    focusVignette?.classList.add("is-on");
+    projectPanel?.focus();
 
-    // Congela o background antes da transicao para priorizar a leitura do conteudo aberto.
     starCinematicLock = true;
     starsFreeze = true;
     starsImpulseEnabled = false;
@@ -1156,170 +1179,48 @@ const openProject = (card) => {
     lastScrollY = window.scrollY;
     lastScrollT = performance.now();
 
-    activeCard = card;
-    activeCardRect = card.getBoundingClientRect();
-    activeProject = extractProjectData(card);
+    if (!isMobileUI) startPanelTilt();
+};
 
-    document.body.classList.add("is-transitioning");
-    projects?.classList.add("is-fading");
-    warpTarget = 0;
-
-    const clone = card.cloneNode(true);
-    clone.classList.add("is-clone");
-    clone.style.top = `${activeCardRect.top}px`;
-    clone.style.left = `${activeCardRect.left}px`;
-    clone.style.width = `${activeCardRect.width}px`;
-    clone.style.height = `${activeCardRect.height}px`;
-    clone.style.transform = "translate(0px, 0px) scale(1)";
-
-    document.body.appendChild(clone);
-    setActiveCardHidden(true);
-    clone.getBoundingClientRect();
-
-    const scaleX = window.innerWidth / activeCardRect.width;
-    const scaleY = window.innerHeight / activeCardRect.height;
-    const scale = Math.max(scaleX, scaleY) * 1.05;
-    const translateX = (window.innerWidth / 2) - (activeCardRect.left + activeCardRect.width / 2);
-    const translateY = (window.innerHeight / 2) - (activeCardRect.top + activeCardRect.height / 2);
-    const overshoot = scale * 1.03;
-
-    const start = "translate(0px, 0px) scale(1)";
-    const mid = `translate(${translateX}px, ${translateY}px) scale(${overshoot})`;
-    const end = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-
-    if (clone.animate) {
-        const animation = clone.animate(
-            [
-                { transform: start },
-                { transform: mid, offset: 0.65, easing: "cubic-bezier(0.25, 0.9, 0.2, 1)" },
-                { transform: end, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" }
-            ],
-            { duration: CLONE_TRANSITION_MS, fill: "forwards" }
-        );
-        animation.onfinish = () => {
-            clone.remove();
-            setProjectViewContent(activeProject);
-            projectView.classList.add("is-open");
-            projectView.setAttribute("aria-hidden", "false");
-            document.body.classList.add("is-project-open");
-            document.body.classList.remove("is-transitioning");
-            projects?.classList.remove("is-fading");
-            focusVignette?.classList.remove("is-on");
-            projectPanel?.focus();
-            if (!isMobileUI) startPanelTilt();
-
-            warpTarget = 0;
-            starCinematicLock = true;
-            starsFreeze = true;
-            starsImpulseEnabled = false;
-        };
+const openProject = (card) => {
+    if (!projectView) return;
+    if (document.startViewTransition) {
+        document.startViewTransition(() => applyOpenProject(card));
     } else {
-        const phaseOneMs = Math.round(CLONE_TRANSITION_MS * 0.65);
-        clone.style.transition = `transform ${phaseOneMs}ms cubic-bezier(0.25, 0.9, 0.2, 1)`;
-        clone.style.transform = mid;
-        window.setTimeout(() => {
-            clone.style.transition = `transform ${CLONE_TRANSITION_MS - phaseOneMs}ms cubic-bezier(0.2, 0.7, 0.2, 1)`;
-            clone.style.transform = end;
-            window.setTimeout(() => {
-                clone.remove();
-                setProjectViewContent(activeProject);
-                projectView.classList.add("is-open");
-                projectView.setAttribute("aria-hidden", "false");
-                document.body.classList.add("is-project-open");
-                document.body.classList.remove("is-transitioning");
-                projects?.classList.remove("is-fading");
-                focusVignette?.classList.remove("is-on");
-                projectPanel?.focus();
-                if (!isMobileUI) startPanelTilt();
-                warpTarget = 0;
-                starCinematicLock = true;
-                starsFreeze = true;
-                starsImpulseEnabled = false;
-            }, CLONE_TRANSITION_MS - phaseOneMs);
-        }, 20);
+        applyOpenProject(card);
     }
-
-    focusVignette?.classList.add("is-on");
-}
+};
 
 /**
  * Fecha o projeto aberto e restaura o estado global da pagina.
- * Em desktop tenta animar o retorno ao card original; em mobile aplica cleanup imediato.
  */
-const closeProject = () => {
-    const wasTransitioning = document.body.classList.contains("is-transitioning");
-    const isOpen = projectView?.classList.contains("is-open");
-
-    /**
-     * Consolida a limpeza de estados visuais e flags de animacao.
-     */
-    const cleanupProjectState = () => {
-        setActiveCardHidden(false);
-        document.body.classList.remove("is-transitioning", "is-project-open", "modal-open");
-        projectView?.classList.remove("is-open");
-        projectView?.setAttribute("aria-hidden", "true");
-        projects?.classList.remove("is-fading");
-        focusVignette?.classList.remove("is-on");
-        stopPanelTilt();
-        activeCard = null;
-        activeCardRect = null;
-        activeProject = null;
-        starCinematicLock = false;
-        starsFreeze = false;
-        starsImpulseEnabled = true;
-        lastScrollY = window.scrollY;
-        lastScrollT = performance.now();
-        scrollImpulse = 0;
-        scrollImpulseTarget = 0;
-        warpTarget = 0;
-        warp = 0;
-    };
-
-    if (!projectView) {
-        // Fallback seguro caso o DOM do modal nao exista.
-        cleanupProjectState();
-        return;
-    }
-
-    if (wasTransitioning && !isOpen) {
-        // Evita ficar preso em "is-transitioning" se algo falhou antes de abrir.
-        cleanupProjectState();
-        return;
-    }
-
-    if (isMobileUI) {
-        cleanupProjectState();
-        return;
-    }
-
-    document.body.classList.add("is-transitioning");
-    projectView.classList.remove("is-open");
-    projectView.setAttribute("aria-hidden", "true");
-    stopPanelTilt();
+const cleanupProjectState = () => {
+    document.body.classList.remove("is-project-open", "modal-open");
+    projectView?.classList.remove("is-open");
+    projectView?.setAttribute("aria-hidden", "true");
     focusVignette?.classList.remove("is-on");
+    stopPanelTilt();
+    activeCard = null;
+    activeProject = null;
+    starCinematicLock = false;
+    starsFreeze = false;
+    starsImpulseEnabled = true;
+    lastScrollY = window.scrollY;
+    lastScrollT = performance.now();
+    scrollImpulse = 0;
+    scrollImpulseTarget = 0;
+    warpTarget = 0;
+    warp = 0;
+};
 
-    if (!projectPanel) {
-        // Sem painel para animar: cleanup completo e desbloqueia.
+const closeProject = () => {
+    if (!projectView?.classList.contains("is-open")) return;
+
+    if (document.startViewTransition) {
+        document.startViewTransition(cleanupProjectState);
+    } else {
         cleanupProjectState();
-        return;
     }
-
-    if (!activeCard) {
-        projectPanel.style.opacity = "";
-        projectPanel.style.pointerEvents = "";
-        cleanupProjectState();
-        return;
-    }
-
-    const finalizeClose = () => {
-        if (projectPanel) {
-            projectPanel.style.opacity = "";
-            projectPanel.style.pointerEvents = "";
-        }
-        cleanupProjectState();
-    };
-
-    finalizeClose();
 };
 
 /**
@@ -1330,44 +1231,22 @@ const visitProject = () => {
     const href = activeProject?.href;
     const targetBlank = activeProject?.targetBlank;
     
-    if (!href || document.body.classList.contains("is-transitioning")) return;
+    if (!href) return;
 
-    document.body.classList.add("is-transitioning");
+    cleanupProjectState();
     projectView?.classList.remove("is-open");
     projectView?.setAttribute("aria-hidden", "true");
     stopPanelTilt();
     focusVignette?.classList.remove("is-on");
 
-    window.setTimeout(() => {
-        const navigateAway = () => {
-            cleanupProjectState();
-            if (targetBlank) {
-                window.open(href, "_blank");
-            } else {
-                window.location.href = href;
-            }
-        };
-        navigateAway();
-    }, 300);
+    if (targetBlank) {
+        window.open(href, "_blank");
+    } else {
+        window.location.href = href;
+    }
 };
 
-projectCards.forEach(card => {
-    card.addEventListener("mouseenter", () => {
-        playHoverSfx();
-    });
-    card.addEventListener("click", (e) => {
-        if (!projects || projects.classList.contains("hidden") || document.body.classList.contains("is-transitioning")) {
-            e.preventDefault();
-            return;
-        }
-        if (!audioMuted && audioArmed) {
-            sfxClick.currentTime = 0;
-            sfxClick.play().catch(() => {});
-        }
-        e.preventDefault();
-        openProject(card);
-    });
-});
+
 
 const contactCards = document.querySelectorAll(".contact-card");
 contactCards.forEach(card => {
@@ -1394,125 +1273,85 @@ window.addEventListener("keydown", (e) => {
         closeProject();
     }
 });
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        setViewportUnit();
+        resize();
+        if (!document.body.classList.contains("is-project-open") &&
+            !document.body.classList.contains("is-transitioning")) {
+            starCinematicLock = false;
+            starsFreeze = false;
+            starsImpulseEnabled = true;
+            scrollImpulse = 0;
+            scrollImpulseTarget = 0;
+        }
+    }
+});
 /* =========================
-   NAV TECH (hover desktop + toggle mobile)
+   HALF-RING NAV (checkbox hack + fechamento externo)
 ========================= */
 (() => {
-  const nav = document.querySelector(".nav-tech");
-  if (!nav) return;
-
-  const btn = nav.querySelector(".nav-tech__toggle");
-  const links = nav.querySelectorAll("[data-nav]");
-  const brand = nav.querySelector(".nav-tech__brand");
+  const nav = document.querySelector(".half-ring-nav");
+  const checkbox = document.getElementById("halfRingToggle");
+  const links = nav?.querySelectorAll("[data-nav]");
+  if (!nav || !checkbox) return;
 
   const coarseQuery = window.matchMedia("(hover: none), (pointer: coarse)");
   const fineQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
-  const isCoarse = () => coarseQuery.matches;
+  // isCoarse removido — não utilizado
 
-  /**
-   * Controla o estado visual e ARIA do menu da navbar no mobile.
-   *
-   * @param {boolean} open
-   */
-  const setOpen = (open) => {
-    nav.classList.toggle("is-open", open);
-    if (btn) btn.setAttribute("aria-expanded", String(open));
-  };
+  /** Fecha o menu desmarcando o checkbox */
+  const closeMenu = () => { checkbox.checked = false; };
 
-  // Mobile: botão abre/fecha
-  btn?.addEventListener("click", () => {
-    const open = !nav.classList.contains("is-open");
-    setOpen(open);
-    // som de clique (usa tua função existente)
-    try { playClickSfx(); } catch (_) {}
-  });
-
-  // Fecha ao clicar fora (mobile)
+  // Fecha ao clicar no backdrop ou fora do nav
   document.addEventListener("pointerdown", (e) => {
-    if (!isCoarse()) return;
-    if (!nav.classList.contains("is-open")) return;
-    if (nav.contains(e.target)) return;
-    setOpen(false);
+    if (!checkbox.checked) return;
+    if (e.target.closest('.half-ring-nav__backdrop') || !nav.contains(e.target)) {
+      closeMenu();
+    }
   });
 
+  // Fecha no ESC
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
-    if (!nav.classList.contains("is-open")) return;
-    // Fechar no ESC evita estado preso quando o menu abre no mobile.
-    setOpen(false);
+    if (!checkbox.checked) return;
+    closeMenu();
   });
 
-  const syncPointerMode = () => {
-    // Ao voltar para desktop, garante que o menu nÇœo fique travado aberto.
-    if (fineQuery.matches) setOpen(false);
-  };
-  coarseQuery.addEventListener("change", syncPointerMode);
-  fineQuery.addEventListener("change", syncPointerMode);
-
-  // Mapeia destinos de scroll usando o meio das faixas para evitar estados limítrofes.
-  /**
-   * Faz a navegacao entre secoes pela navbar sem depender de anchors estaticas.
-   *
-   * @param {string | null} key
-   */
+  /** Navegação entre seções */
   const scrollToSection = (key) => {
     const [yHero, ySobre, yContato, yProjects] = getScrollTargets();
-
     if (key === "sobre") window.scrollTo({ top: ySobre, behavior: "smooth" });
     else if (key === "contato") window.scrollTo({ top: yContato, behavior: "smooth" });
     else if (key === "projects") window.scrollTo({ top: yProjects, behavior: "smooth" });
-    else if (key === "sound") {
-      // aciona o controle unificado de som
-      toggleSound();
-    } else {
-      window.scrollTo({ top: yHero, behavior: "smooth" });
-    }
+    else if (key === "sound") { toggleSound(); }
+    else if (key === "theme") { window.scrollTo({ top: 0, behavior: "smooth" }); }
+    else { window.scrollTo({ top: yHero, behavior: "smooth" }); }
   };
 
-  links.forEach((el) => {
+  // Clique nos itens: navega + fecha o menu
+  links?.forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
-
-      // não mexe se modal aberto/transição
       if (document.body.classList.contains("is-transitioning") ||
           document.body.classList.contains("is-project-open")) {
         try { playClickSfx(); } catch (_) {}
         return;
       }
-
       const key = el.getAttribute("data-nav");
       try { playClickSfx(); } catch (_) {}
       scrollToSection(key);
-
-      // fecha no mobile
-      if (isCoarse()) setOpen(false);
+      closeMenu();
     });
   });
 
-  // Hover sfx na navbar usa o mesmo cooldown/global dos cards.
-  brand?.addEventListener("mouseenter", playHoverSfx);
+  // Hover sfx no botão e links
+  const btn = nav.querySelector(".half-ring-nav__toggle");
   btn?.addEventListener("mouseenter", playHoverSfx);
-  links.forEach((el) => el.addEventListener("mouseenter", playHoverSfx));
+  links?.forEach((el) => el.addEventListener("mouseenter", playHoverSfx));
 
-  brand?.addEventListener("click", (e) => {
-    e.preventDefault();
-
-    if (document.body.classList.contains("is-transitioning") ||
-        document.body.classList.contains("is-project-open")) {
-      try { playClickSfx(); } catch (_) {}
-      return;
-    }
-
-    try { playClickSfx(); } catch (_) {}
-    // Usa 5px para evitar acionar o loop de scroll no topo.
-    window.scrollTo({ top: 5, behavior: "smooth" });
-    if (isCoarse()) setOpen(false);
-  });
-
-  // Se o boot loader estiver ativo, mantém a nav invisível (opcional, mas fica mais “cinema”)
-  /**
-   * Mantem a navbar invisivel enquanto o boot loader estiver ativo.
-   */
+  // Boot loader — esconde a nav
   const syncBoot = () => {
     const booting = document.body.classList.contains("is-booting");
     nav.style.opacity = booting ? "0" : "1";
@@ -1521,62 +1360,32 @@ window.addEventListener("keydown", (e) => {
   syncBoot();
   const obs = new MutationObserver(syncBoot);
   obs.observe(document.body, { attributes: true, attributeFilter: ["class"] });
-})();
 
-/* =========================
-   NAVBAR LIQUID EFFECT
-========================= */
-(() => {
-  const navWrap = document.querySelector('.nav-tech__wrap');
-  const nav = document.querySelector('.nav-tech');
-  if (!navWrap || !nav) return;
+  // Seção ativa — IntersectionObserver em elementos reais do DOM
+  const sectionEls = [
+    { el: document.querySelector("#sobreText"), key: "sobre" },
+    { el: document.querySelector("#contatoText"), key: "contato" },
+    { el: document.querySelector("#projects"), key: "projects" }
+  ].filter(s => s.el);
 
-  const EFFECT_INTERVAL = 3000;  // 3 segundos entre efeitos
-  const EFFECT_DURATION = 1200;  // 1.2 segundos de duração
-  let liquidTimer = null;
-  let isHovering = false;
-
-  /**
-   * Ativa o efeito líquido uma vez
-   */
-  const triggerLiquidEffect = () => {
-    if (isHovering) return; // Não ativa se estiver em hover
-
-    navWrap.classList.add('nav-liquid-active');
-    
-    // Remove a classe após a animação terminar
-    setTimeout(() => {
-      navWrap.classList.remove('nav-liquid-active');
-    }, EFFECT_DURATION);
+  const applyActiveSlice = (activeKey) => {
+    links?.forEach((el) => {
+      el.classList.toggle("is-active", el.getAttribute("data-nav") === activeKey);
+    });
   };
 
-  /**
-   * Inicia o timer de 7 segundos
-   */
-  const startLiquidTimer = () => {
-    if (liquidTimer) clearTimeout(liquidTimer);
-    liquidTimer = setTimeout(triggerLiquidEffect, EFFECT_INTERVAL);
-  };
+  const sectionObserver = new IntersectionObserver((entries) => {
+    const visible = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+    if (visible.length > 0) {
+      const found = sectionEls.find(s => s.el === visible[0].target);
+      if (found) applyActiveSlice(found.key);
+    } else {
+      // Nenhuma seção visível → hero (nenhum slice destacado)
+      applyActiveSlice(null);
+    }
+  }, { threshold: [0, 0.3, 0.6, 1] });
 
-  /**
-   * Detecta entrada do mouse
-   */
-  nav.addEventListener('mouseenter', () => {
-    isHovering = true;
-    if (liquidTimer) clearTimeout(liquidTimer);
-    navWrap.classList.remove('nav-liquid-active'); // Para efeito imediatamente
-  });
-
-  /**
-   * Detecta saída do mouse - reinicia o timer
-   */
-  nav.addEventListener('mouseleave', () => {
-    isHovering = false;
-    startLiquidTimer(); // Reinicia o contador de 7 segundos
-  });
-
-  // Inicia o timer na página carregada
-  startLiquidTimer();
+  sectionEls.forEach(s => sectionObserver.observe(s.el));
 })();
 
 /* =========================
@@ -1584,7 +1393,7 @@ window.addEventListener("keydown", (e) => {
 ========================= */
 (() => {
   const EFFECT_INTERVAL = 3000;  // 3 segundos entre efeitos
-  const EFFECT_DURATION = 1200;  // 1.2 segundos de duração (mesmo que CSS)
+  // Reusa HERO_LIQUID_DURATION do escopo do módulo
   let heroLiquidTimer = null;
   let navIsHovering = false;
 
@@ -1600,11 +1409,11 @@ window.addEventListener("keydown", (e) => {
     // Desativa após a duração da animação
     setTimeout(() => {
       heroTextLiquidActive = false;
-    }, EFFECT_DURATION);
+    }, HERO_LIQUID_DURATION);
   };
 
   /**
-   * Inicia o timer de 7 segundos
+   * Inicia o timer de 3 segundos
    */
   const startHeroLiquidTimer = () => {
     if (heroLiquidTimer) clearTimeout(heroLiquidTimer);
@@ -1614,7 +1423,7 @@ window.addEventListener("keydown", (e) => {
   /**
    * Monitora o estado de hover da navbar para coordenar efeitos
    */
-  const nav = document.querySelector('.nav-tech');
+  const nav = document.querySelector('.half-ring-nav');
   if (nav) {
     nav.addEventListener('mouseenter', () => {
       navIsHovering = true;
@@ -1631,3 +1440,5 @@ window.addEventListener("keydown", (e) => {
   // Inicia o timer na página carregada
   startHeroLiquidTimer();
 })();
+
+

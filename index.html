@@ -5,46 +5,124 @@
     <title>cauanzera</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#000000">
+    <meta name="description" content="Portfólio de Cauã Pedrozo Brito — desenvolvedor focado em experiências visuais e interfaces imersivas.">
+    <meta property="og:title" content="cauanzera — Portfólio">
+    <meta property="og:description" content="Portfólio de Cauã Pedrozo Brito — desenvolvedor focado em experiências visuais e interfaces imersivas.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cauapbritto.github.io/portif-lio">
+    <meta property="og:image" content="https://cauapbritto.github.io/portif-lio/assets/img/projetos/ecopontos.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="cauanzera — Portfólio">
+    <meta name="twitter:description" content="Portfólio de Cauã Pedrozo Brito — desenvolvedor focado em experiências visuais e interfaces imersivas.">
+    <link rel="preload" href="./assets/fonts/ZeroHour.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="./assets/cursor/cursor-ready-small.png" as="image">
+    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+    <link rel="manifest" href="./manifest.json">
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Cauã Pedrozo Brito",
+        "alternateName": "cauanzera",
+        "url": "https://cauapbritto.github.io/portif-lio",
+        "sameAs": [
+            "https://github.com/cauapbritto",
+            "https://www.linkedin.com/in/cau%C3%A3-pedrozo-brito-8a685b358"
+        ],
+        "description": "Desenvolvedor focado em experiências visuais e interfaces imersivas."
+    }
+    </script>
     <script src="./theme.js"></script>
     <link rel="stylesheet" href="index.css">
 </head>
 <body class="is-booting">
+<div class="scroll-progress" aria-hidden="true">
+    <span class="scroll-progress__bar" id="scrollProgressBar"></span>
+</div>
+<h1 class="sr-only">Cauanzera — Portfólio</h1>
+<a href="#main-content" class="skip-link">Pular para o conteúdo</a>
 
-<nav class="nav-tech" aria-label="Navegação principal">
-  <div class="nav-tech__wrap">
-    <a class="nav-tech__brand" href="#top" aria-label="Início">
-      <span class="nav-tech__dot" aria-hidden="true"></span>
-      <span class="nav-tech__name">CAUANZERA</span>
-    </a>
-
-    <button class="nav-tech__toggle" type="button" aria-expanded="false" aria-controls="navTechMenu">
-      <span class="nav-tech__burger" aria-hidden="true"></span>
-      <span class="sr-only">Abrir menu</span>
-    </button>
-
-    <div id="navTechMenu" class="nav-tech__menu">
-      <a class="nav-tech__link" href="#sobre" data-nav="sobre">Sobre</a>
-      <a class="nav-tech__link" href="#contato" data-nav="contato">Contato</a>
-      <a class="nav-tech__link" href="#projects" data-nav="projects">Projetos</a>
-      <button class="nav-tech__link nav-tech__link--btn" type="button" data-nav="sound">
-        Som
-      </button>
-      <button
-        class="nav-tech__link nav-tech__link--btn theme-toggle"
-        id="themeToggle"
-        type="button"
-        aria-label="Alternar tema"
-        title="Alternar modo claro/escuro"
-      >
-        <span class="theme-toggle__icon" aria-hidden="true">◑</span>
-        <span class="theme-toggle__label">TEMA</span>
-      </button>
-    </div>
-  </div>
+<header>
+<nav class="half-ring-nav" aria-label="Navegação principal" role="navigation">
+  <input type="checkbox" id="halfRingToggle" class="half-ring-nav__checkbox">
+  
+  <label for="halfRingToggle" class="half-ring-nav__toggle" aria-label="Abrir menu">
+    <span class="half-ring-nav__icon">
+      <span class="half-ring-nav__moon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--bg)" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 A10.2 10.2 0 0 1 12 22 A12 12 0 0 0 12 2 Z"/>
+        </svg>
+      </span>
+      <span class="half-ring-nav__sun" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </span>
+    </span>
+  </label>
+  
+  <div class="half-ring-nav__backdrop"></div>
+  <div class="half-ring-nav__sweep"></div>
+  
+  <svg class="half-ring-nav__svg" viewBox="-125 -125 250 125" aria-hidden="true">
+    <defs>
+      <symbol id="icon-sobre" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></symbol>
+      <symbol id="icon-contato" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 4l10 9 10-9"/></symbol>
+      <symbol id="icon-projetos" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+      <symbol id="icon-som" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4a1 1 0 001 1h3l4 4V5l-4 4H4a1 1 0 00-1 1z"/><path d="M16 8a5 5 0 010 8"/></symbol>
+      <symbol id="icon-tema" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></symbol>
+      <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur"/>
+        <feMerge>
+          <feMergeNode in="blur"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <filter id="neonGlowIntense" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur1"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur2"/>
+        <feMerge>
+          <feMergeNode in="blur1"/>
+          <feMergeNode in="blur2"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+      <clipPath id="sweepClip" clipPathUnits="userSpaceOnUse">
+        <path d="M10,125 A115,115 0 0,1 240,125 L180,125 A55,55 0 0,0 70,125 Z"/>
+      </clipPath>
+    </defs>
+    
+    <g class="half-ring-nav__slice" data-nav="sobre" style="--i: 0">
+      <path d="M-115,0 A115,115 0 0,1 -93,-67.6 L-44.5,-32.3 A55,55 0 0,0 -55,0 Z"/>
+      <use class="half-ring-nav__slice-icon" href="#icon-sobre" x="-99" y="-38" width="16" height="16"/>
+      <text class="half-ring-nav__slice-label" x="-68" y="-22">Sobre</text>
+    </g>
+    <g class="half-ring-nav__slice" data-nav="contato" style="--i: 1">
+      <path d="M-93,-67.6 A115,115 0 0,1 -35.5,-109.4 L-17,-52.3 A55,55 0 0,0 -44.5,-32.3 Z"/>
+      <use class="half-ring-nav__slice-icon" href="#icon-contato" x="-64" y="-86" width="16" height="16"/>
+      <text class="half-ring-nav__slice-label" x="-42" y="-58">Contato</text>
+    </g>
+    <g class="half-ring-nav__slice" data-nav="projects" style="--i: 2">
+      <path d="M-35.5,-109.4 A115,115 0 0,1 35.5,-109.4 L17,-52.3 A55,55 0 0,0 -17,-52.3 Z"/>
+      <use class="half-ring-nav__slice-icon" href="#icon-projetos" x="-8" y="-104" width="16" height="16"/>
+      <text class="half-ring-nav__slice-label" x="0" y="-72">Projetos</text>
+    </g>
+    <g class="half-ring-nav__slice" data-nav="sound" style="--i: 3">
+      <path d="M35.5,-109.4 A115,115 0 0,1 93,-67.6 L44.5,-32.3 A55,55 0 0,0 17,-52.3 Z"/>
+      <use class="half-ring-nav__slice-icon" href="#icon-som" x="48" y="-86" width="16" height="16"/>
+      <text class="half-ring-nav__slice-label" x="42" y="-58">Som</text>
+    </g>
+    <g class="half-ring-nav__slice" data-nav="theme" id="themeToggle" style="--i: 4">
+      <path d="M93,-67.6 A115,115 0 0,1 115,0 L55,0 A55,55 0 0,0 44.5,-32.3 Z"/>
+      <g class="half-ring-nav__slice-icon-wrapper" id="themeIconWrapper">
+        <use class="half-ring-nav__slice-icon" href="#icon-tema" x="83" y="-38" width="16" height="16"/>
+      </g>
+      <text class="half-ring-nav__slice-label" x="68" y="-22">Tema</text>
+    </g>
+    
+    <circle class="half-ring-nav__center-dot" cx="0" cy="0" r="5"/>
+  </svg>
 </nav>
-
-
-<div id="bootLoader" class="boot-loader" aria-hidden="false">
+</header>
+<div id="bootLoader" class="boot-loader">
     <canvas id="bootFx" aria-hidden="true"></canvas>
     <div class="boot-loader__inner">
         <div class="resonance" aria-hidden="true">
@@ -57,6 +135,7 @@
 
 
 <!-- CANVAS -->
+<main id="main-content">
 <canvas id="particles"></canvas>
 <canvas id="overlay2d"></canvas>
 
@@ -68,14 +147,15 @@
 
     <!-- PROJETOS -->
     <section id="projects" class="projects hidden">
-        <div class="projects-wrapper">
+        <div class="projects-wrapper stagger-children">
 
             <!-- TÍTULO -->
-            <h2 class="projects-title">Projetos desenvolvidos</h2>
+            <h2 class="projects-title stagger-1">Projetos desenvolvidos</h2>
 
-            <!-- GRID -->
+            <!-- MARQUEE -->
             <div class="projects-grid">
-               <a href="https://seuprojeto5.com" target="_blank" class="project-card">
+              <div class="marquee-track stagger-2">
+               <a href="https://seuprojeto5.com" target="_blank" rel="noopener noreferrer" class="project-card">
   <div class="card-inner">
     <div class="card-front" style="background-image: url('https://picsum.photos/600/400?5');">
       <div class="overlay">
@@ -92,8 +172,26 @@
   </div>
 </a>
 
+<a href="https://cauapbritto.github.io/lixo-eletronico/"
+   target="_blank" rel="noopener noreferrer" class="project-card">
+  <div class="card-inner">
+    <div class="card-front"
+         style="background-image: url('./assets/img/projetos/ecopontos.png');">
+      <div class="overlay">
+        <h3>EcoPontos</h3>
+        <p>Pontos de coleta de lixo eletrônico em Cuiabá</p>
+      </div>
+    </div>
 
-                <a href="https://seuprojeto2.com" target="_blank" class="project-card">
+    <div class="card-back card-back--green">
+      <h3>Tecnologias</h3>
+      <p>JavaScript, CSS, HTML</p>
+      <span class="hint">Clique para visitar</span>
+    </div>
+  </div>
+</a>
+
+                <a href="https://seuprojeto2.com" target="_blank" rel="noopener noreferrer" class="project-card">
   <div class="card-inner">
     <div class="card-front" style="background-image: url('https://picsum.photos/600/400?2');">
       <div class="overlay">
@@ -110,7 +208,7 @@
   </div>
 </a>
 
-                <a href="https://seuprojeto3.com" target="_blank" class="project-card">
+                <a href="https://seuprojeto3.com" target="_blank" rel="noopener noreferrer" class="project-card">
   <div class="card-inner">
     <div class="card-front" style="background-image: url('https://picsum.photos/600/400?3');">
       <div class="overlay">
@@ -127,7 +225,7 @@
   </div>
 </a>
 
-                <a href="https://seuprojeto4.com" target="_blank" class="project-card">
+                <a href="https://seuprojeto4.com" target="_blank" rel="noopener noreferrer" class="project-card">
   <div class="card-inner">
     <div class="card-front" style="background-image: url('https://picsum.photos/600/400?4');">
       <div class="overlay">
@@ -143,6 +241,7 @@
     </div>
   </div>
 </a>
+              </div>
             </div>
 
         </div>
@@ -151,27 +250,31 @@
     
 
     <!-- SOBRE -->
-    <div id="sobreText" class="stack-item blur-text">
-        <h2>Sobre mim</h2>
-        <p>Desenvolvedor em formação, focado em experiências visuais e interfaces imersivas.</p>
+    <section aria-label="Sobre mim">
+    <div id="sobreText" class="stack-item blur-text stagger-children">
+        <h2 class="stagger-1">Sobre mim</h2>
+        <p class="stagger-2">Desenvolvedor em formação, focado em experiências visuais e interfaces imersivas.</p>
     </div>
+    </section>
 
     <!-- CONTATO -->
-    <div id="contatoText" class="stack-item blur-text">
-        <h2>Contato</h2>
-        <p>caua.pbritto@gmail.com</p>
+    <section aria-label="Contato">
+    <div id="contatoText" class="stack-item blur-text stagger-children">
+        <h2 class="stagger-1">Contato</h2>
+        <p class="stagger-2">caua.pbritto@gmail.com</p>
 
-        <div class="contact-cards">
-            <a href="https://github.com/cauapbritto" target="_blank" class="contact-card github-card" aria-label="GitHub">
-                <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg" alt="GitHub" class="contact-card-icon" />
+        <div class="contact-cards stagger-3">
+            <a href="https://github.com/cauapbritto" target="_blank" rel="noopener noreferrer" class="contact-card github-card" aria-label="GitHub">
+                <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/github.svg" alt="GitHub" class="contact-card-icon" loading="lazy" decoding="async" />
                 <span>GitHub</span>
             </a>
-            <a href="https://www.linkedin.com/in/cauã-pedrozo-brito-8a685b358" target="_blank" class="contact-card linkedin-card" aria-label="LinkedIn">
-                <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/linkedin.svg" alt="LinkedIn" class="contact-card-icon" />
+            <a href="https://www.linkedin.com/in/cau%C3%A3-pedrozo-brito-8a685b358" target="_blank" rel="noopener noreferrer" class="contact-card linkedin-card" aria-label="LinkedIn">
+                <img src="https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/linkedin.svg" alt="LinkedIn" class="contact-card-icon" loading="lazy" decoding="async" />
                 <span>LinkedIn</span>
             </a>
         </div>
     </div>
+    </section>
 
 </section>
 
@@ -203,8 +306,12 @@
 <!-- SCROLL -->
 <div class="scroll-spacer"></div>
 
-<!-- SOUND TOGGLE removido: controle agora existe apenas na navbar -->
+</main>
+
 
 <script src="script.js"></script>
+<button id="backToTop" class="back-to-top" aria-label="Voltar ao topo" type="button">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
 </body>
 </html>

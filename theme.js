@@ -9,14 +9,22 @@
     const META_THEME = document.querySelector('meta[name="theme-color"]');
     const META_COLORS = {
         dark: "#000000",
-        light: "#f5f0e8"
+        light: "#d8c5aa"
     };
 
     function getInitialTheme() {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        let saved;
+        try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) { /* privacy mode */ }
         if (saved === DARK || saved === LIGHT) return saved;
         // Padrão sempre escuro — portfólio dark-first
         return DARK;
+    }
+
+    let themeIconEl = null;
+
+    function getThemeIcon() {
+        if (!themeIconEl) themeIconEl = document.getElementById("themeIconWrapper");
+        return themeIconEl;
     }
 
     function applyTheme(theme, animate) {
@@ -35,7 +43,19 @@
             HTML.style.transition = "";
         }
 
-        localStorage.setItem(STORAGE_KEY, theme);
+        /* Micro-animação no ícone do tema */
+        if (animate) {
+            const icon = getThemeIcon();
+            if (icon) {
+                icon.classList.add("is-switching");
+                icon.addEventListener("transitionend", function handler() {
+                    icon.classList.remove("is-switching");
+                    icon.removeEventListener("transitionend", handler);
+                }, { once: true });
+            }
+        }
+
+        try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) { /* privacy mode */ }
     }
 
     // Aplica imediatamente sem animação para evitar flash
