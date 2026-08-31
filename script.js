@@ -106,6 +106,9 @@ const ambient = new Audio("sounds/ambient.mp3");
 const sfxHover = new Audio("sounds/hover.mp3");
 const sfxClick = new Audio("sounds/click.mp3");
 
+ambient.preload = "none";
+sfxHover.preload = "auto";
+sfxClick.preload = "auto";
 ambient.loop = true;
 ambient.volume = 0.12;
 sfxHover.volume = 0.18;
@@ -151,6 +154,7 @@ const updateSoundToggle = () => {
         const label = navSound.querySelector(".half-ring-nav__slice-label");
         if (label) label.textContent = isOn ? "Som" : "Mudo";
         navSound.setAttribute("aria-pressed", String(isOn));
+        navSound.setAttribute("aria-label", isOn ? "Desativar som" : "Ativar som");
     }
 };
 
@@ -271,9 +275,19 @@ function resize() {
         overlay.height = h;
     }
 }
+
+let resizeFrame = null;
+const scheduleResize = () => {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        resize();
+    });
+};
+
 resize();
-window.addEventListener("resize", resize);
-window.addEventListener("orientationchange", setViewportUnit);
+window.addEventListener("resize", scheduleResize);
+window.addEventListener("orientationchange", scheduleResize);
 
 /* =========================
    SAFE MODE OVERLAY
@@ -314,6 +328,18 @@ function showFatalError(err) {
 }
 
 window.onerror = (message, source, lineno, colno, error) => {
+    const isOpaqueExternalError =
+        message === "Script error." &&
+        !source &&
+        !lineno &&
+        !colno &&
+        !error;
+
+    if (isOpaqueExternalError) {
+        console.warn("Ignored opaque external script error");
+        return true;
+    }
+
     showFatalError(error || new Error(String(message)));
 };
 window.onunhandledrejection = (event) => {
@@ -389,7 +415,6 @@ let scrollImpulse = 0;
 let scrollImpulseTarget = 0;
 let lastScrollY = window.scrollY;
 let lastScrollT = performance.now();
-let ignoreNextImpulse = false;
 let starsImpulseEnabled = true;
 let starsFreeze = false;
 let starCinematicLock = false;
@@ -399,10 +424,15 @@ const IMPULSE_LERP = 0.35;
 const IMPULSE_DECAY = 0.86;
 const IMPULSE_STAR_MULT = 18;
 
+const HERO_LABEL = "Cauanzera";
+
 /* Controle de efeito liquid text no título hero */
 let heroTextLiquidActive = false;
 let heroLiquidStartTime = 0;
 const HERO_LIQUID_DURATION = 1200; // 1.2 segundos
+let heroConstellationCache = null;
+let heroConstellationStart = performance.now();
+let heroPositionBuffer = null;
 
 /**
  * Calcula as faixas logicas de scroll usadas pela pagina.
@@ -517,7 +547,9 @@ class Star {
 
 
 if (canvas) {
-    const starCount = isMobileUI ? 120 : 300;
+    const starCount = prefersReducedMotion
+        ? (isMobileUI ? 50 : 120)
+        : (isMobileUI ? 100 : 240);
     for (let i = 0; i < starCount; i++) stars.push(new Star());
 }
 
@@ -525,8 +557,12 @@ if (canvas) {
    REDE DO MOUSE
 ========================= */
 const mouseParticles = [];
+let lastMouseParticleAt = 0;
 if (!isTouch) {
     window.addEventListener("mousemove", e => {
+        const now = performance.now();
+        if (now - lastMouseParticleAt < 24) return;
+        lastMouseParticleAt = now;
         mouseParticles.push({
             x: e.clientX, y: e.clientY,
             vx: (Math.random() - 0.5) * 2,
@@ -571,6 +607,332 @@ function drawMouseNetwork() {
     }
 }
 
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const clamp01 = (value) => Math.min(Math.max(value, 0), 1);
+
+const seededUnit = (value) => {
+    const raw = Math.sin(value * 12.9898) * 43758.5453;
+    return raw - Math.floor(raw);
+};
+
+function drawHeroIgnition(opacity, now) {
+    if (!octx || !overlay || opacity <= 0) return;
+
+    const elapsed = now - heroConstellationStart;
+    const cx = overlay.width / 2;
+    const cy = overlay.height / 2;
+    const minSide = Math.min(overlay.width, overlay.height);
+    const maxRadius = minSide * (isMobileUI ? 0.36 : 0.42);
+    const rgb = canvasTheme.isLight ? canvasTheme.textRgb : canvasTheme.accentRgb;
+    const glowRgb = canvasTheme.isLight ? canvasTheme.heroGlowRgb : canvasTheme.accentRgb;
+    const ignition = prefersReducedMotion ? 0 : clamp01(1 - elapsed / 2600);
+    const pulseIn = prefersReducedMotion ? 0 : easeOutCubic(clamp01(elapsed / 900));
+    const coreAlpha = opacity * ignition * (0.12 + pulseIn * 0.18);
+
+    if (ignition <= 0.01) return;
+
+    octx.save();
+    octx.globalCompositeOperation = canvasTheme.isLight ? "source-over" : "lighter";
+
+    const core = octx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
+    core.addColorStop(0, `rgba(${glowRgb},${coreAlpha})`);
+    core.addColorStop(0.28, `rgba(${rgb},${coreAlpha * 0.36})`);
+    core.addColorStop(1, `rgba(${rgb},0)`);
+    octx.fillStyle = core;
+    octx.beginPath();
+    octx.arc(cx, cy, maxRadius, 0, Math.PI * 2);
+    octx.fill();
+
+    for (let i = 0; i < 3; i++) {
+        const t = clamp01((elapsed - i * 180) / 1450);
+        const ringAlpha = opacity * ignition * (1 - t) * (canvasTheme.isLight ? 0.16 : 0.28);
+        if (ringAlpha <= 0) continue;
+
+        const radius = minSide * 0.06 + maxRadius * easeOutCubic(t);
+        octx.strokeStyle = `rgba(${rgb},${ringAlpha})`;
+        octx.lineWidth = 1 + (1 - t) * 2.2;
+        octx.shadowColor = `rgba(${glowRgb},${ringAlpha})`;
+        octx.shadowBlur = 16;
+        octx.beginPath();
+        octx.arc(cx, cy, radius, 0, Math.PI * 2);
+        octx.stroke();
+    }
+
+    const flareWidth = Math.min(overlay.width * 0.72, maxRadius * 2.4);
+    const flareAlpha = opacity * ignition * (0.18 + Math.sin(now * 0.006) * 0.05);
+    const flare = octx.createLinearGradient(cx - flareWidth / 2, cy, cx + flareWidth / 2, cy);
+    flare.addColorStop(0, `rgba(${rgb},0)`);
+    flare.addColorStop(0.45, `rgba(${rgb},${flareAlpha})`);
+    flare.addColorStop(0.5, `rgba(${glowRgb},${flareAlpha * 1.45})`);
+    flare.addColorStop(0.55, `rgba(${rgb},${flareAlpha})`);
+    flare.addColorStop(1, `rgba(${rgb},0)`);
+
+    octx.strokeStyle = flare;
+    octx.lineWidth = isMobileUI ? 1 : 1.5;
+    octx.shadowColor = `rgba(${glowRgb},${flareAlpha})`;
+    octx.shadowBlur = 22;
+    octx.beginPath();
+    octx.moveTo(cx - flareWidth / 2, cy);
+    octx.lineTo(cx + flareWidth / 2, cy);
+    octx.stroke();
+
+    octx.restore();
+}
+
+const getHeroFontSize = () => {
+    if (!overlay) return 72;
+    const viewportMin = Math.min(overlay.width, overlay.height);
+    const widthCap = overlay.width * (isMobileUI ? 0.13 : 0.11);
+    const viewportScale = viewportMin * (isMobileUI ? 0.14 : 0.108);
+    return Math.max(isMobileUI ? 34 : 54, Math.min(widthCap, viewportScale));
+};
+
+const buildHeroConstellation = () => {
+    if (!overlay) return null;
+
+    const fontSize = getHeroFontSize();
+    const key = `${overlay.width}x${overlay.height}:${Math.round(fontSize)}:${isMobileUI}`;
+    if (heroConstellationCache?.key === key) return heroConstellationCache;
+
+    const mask = document.createElement("canvas");
+    const maskCtx = mask.getContext("2d", { willReadFrequently: true });
+    if (!maskCtx) return null;
+
+    mask.width = overlay.width;
+    mask.height = overlay.height;
+
+    const textX = mask.width / 2;
+    const textY = mask.height / 2;
+    maskCtx.font = `400 ${fontSize}px "Zero Hour", system-ui, sans-serif`;
+    maskCtx.textAlign = "center";
+    maskCtx.textBaseline = "middle";
+    maskCtx.fillStyle = "#fff";
+    maskCtx.fillText(HERO_LABEL, textX, textY);
+
+    const metrics = maskCtx.measureText(HERO_LABEL);
+    const textWidth = metrics.width;
+    const textHeight = fontSize * 1.15;
+    const left = Math.max(0, Math.floor(textX - textWidth / 2 - fontSize * 0.2));
+    const right = Math.min(mask.width, Math.ceil(textX + textWidth / 2 + fontSize * 0.2));
+    const top = Math.max(0, Math.floor(textY - textHeight / 2));
+    const bottom = Math.min(mask.height, Math.ceil(textY + textHeight / 2));
+    const image = maskCtx.getImageData(left, top, right - left, bottom - top);
+    const sampled = [];
+    const step = isMobileUI ? 8 : 6;
+
+    for (let y = 0; y < image.height; y += step) {
+        for (let x = 0; x < image.width; x += step) {
+            const alpha = image.data[((y * image.width + x) * 4) + 3];
+            if (alpha < 70) continue;
+
+            const px = left + x;
+            const py = top + y;
+            const seed = seededUnit(px * 0.19 + py * 0.37);
+            const angle = seed * Math.PI * 2;
+            const distance = (0.45 + seededUnit(seed * 97.3) * 0.85) * Math.max(mask.width, mask.height) * 0.54;
+
+            sampled.push({
+                x: px,
+                y: py,
+                ox: textX + Math.cos(angle) * distance,
+                oy: textY + Math.sin(angle) * distance * 0.58,
+                seed,
+                phase: seededUnit(seed * 41.7) * Math.PI * 2,
+                radius: isMobileUI ? 1 : 1.15 + seededUnit(seed * 11.2) * 1.1
+            });
+        }
+    }
+
+    const maxPoints = prefersReducedMotion
+        ? (isMobileUI ? 80 : 150)
+        : (isMobileUI ? 140 : 320);
+    const stride = Math.max(1, Math.ceil(sampled.length / maxPoints));
+    const points = sampled.filter((_, index) => index % stride === 0).slice(0, maxPoints);
+
+    const links = prefersReducedMotion ? [] : buildConstellationLinks(points, fontSize);
+
+    heroConstellationCache = {
+        key,
+        points,
+        links,
+        textX,
+        textY,
+        textWidth,
+        fontSize
+    };
+
+    return heroConstellationCache;
+};
+
+/**
+ * Pre-computa os pares de conexao (rede neural) das particulas do texto.
+ * Cada particula conecta aos K vizinhos mais proximos dentro do raio maximo.
+ * Usa grid espacial para evitar O(n^2) por par.
+ */
+function buildConstellationLinks(points, fontSize) {
+    const maxDist = Math.max(24, fontSize * 0.62);
+    const maxDistSq = maxDist * maxDist;
+    const maxNeighbors = 2;
+    const links = new Set();
+    const cell = Math.ceil(maxDist);
+    const grid = new Map();
+
+    const cellKey = (cx, cy) => `${cx},${cy}`;
+
+    points.forEach((p, index) => {
+        const gx = Math.floor(p.x / cell);
+        const gy = Math.floor(p.y / cell);
+        const key = cellKey(gx, gy);
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push({ p, index });
+    });
+
+    const neighborCandidates = (px, py) => {
+        const gx = Math.floor(px / cell);
+        const gy = Math.floor(py / cell);
+        const out = [];
+        for (let dx = -1; dx <= 1; dx += 1) {
+            for (let dy = -1; dy <= 1; dy += 1) {
+                const bucket = grid.get(cellKey(gx + dx, gy + dy));
+                if (bucket) out.push(...bucket);
+            }
+        }
+        return out;
+    };
+
+    points.forEach((point, index) => {
+        const candidates = neighborCandidates(point.x, point.y)
+            .filter(({ index: otherIndex }) => otherIndex > index);
+
+        const distances = [];
+        for (const cand of candidates) {
+            const ox = cand.p.x - point.x;
+            const oy = cand.p.y - point.y;
+            const dSq = ox * ox + oy * oy;
+            if (dSq <= maxDistSq && dSq > 0) distances.push({ dSq, otherIndex: cand.index });
+        }
+
+        distances.sort((a, b) => a.dSq - b.dSq);
+        for (let i = 0; i < Math.min(maxNeighbors, distances.length); i += 1) {
+            const a = Math.min(index, distances[i].otherIndex);
+            const b = Math.max(index, distances[i].otherIndex);
+            links.add(`${a}|${b}`);
+        }
+    });
+
+    return Array.from(links).map((pair) => {
+        const [a, b] = pair.split("|").map(Number);
+        const pa = points[a];
+        const pb = points[b];
+        const dx = pa.x - pb.x;
+        const dy = pa.y - pb.y;
+        return {
+            a,
+            b,
+            dist: Math.sqrt(dx * dx + dy * dy),
+            maxDist,
+            phase: (pa.phase + pb.phase) * 0.5
+        };
+    });
+}
+
+document.fonts?.ready?.then(() => {
+    heroConstellationCache = null;
+    heroConstellationStart = performance.now();
+});
+
+function drawHeroConstellation(opacity, now) {
+    if (!octx || !overlay || opacity <= 0) return;
+
+    const constellation = buildHeroConstellation();
+    if (!constellation || constellation.points.length === 0) return;
+
+    const elapsed = now - heroConstellationStart;
+    const intro = prefersReducedMotion ? 1 : easeOutCubic(Math.min(elapsed / 1900, 1));
+    const wake = prefersReducedMotion ? 1 : Math.min(elapsed / 480, 1);
+    const travelEnergy = prefersReducedMotion ? 0 : Math.max(0, 1 - elapsed / 2200);
+    const settledDrift = prefersReducedMotion ? 0 : Math.min(1, elapsed / 2200);
+    const rgb = canvasTheme.isLight ? canvasTheme.textRgb : canvasTheme.accentRgb;
+    const glowRgb = canvasTheme.isLight ? canvasTheme.heroGlowRgb : canvasTheme.accentRgb;
+    const themeAlpha = canvasTheme.isLight ? 0.72 : 1;
+
+    const rgbParts = rgb.split(",");
+    const rigidRgb = `${rgbParts[0].trim()},${rgbParts[1].trim()},${rgbParts[2].trim()}`;
+
+    const points = constellation.points;
+    const count = points.length;
+    const stride = 3;
+    if (!heroPositionBuffer || heroPositionBuffer.length < count * stride) {
+        heroPositionBuffer = new Float32Array(count * stride);
+    }
+    const pos = heroPositionBuffer;
+
+    for (let i = 0; i < count; i += 1) {
+        const point = points[i];
+        const localDelay = prefersReducedMotion ? 0 : point.seed * 0.16;
+        const settle = easeOutCubic(Math.max(0, Math.min(1, (intro - localDelay) / (1 - localDelay || 1))));
+        const drift = settledDrift * Math.sin(now * 0.0012 + point.phase) * (isMobileUI ? 0.55 : 0.85);
+        const base = i * stride;
+        pos[base] = point.ox + (point.x - point.ox) * settle + Math.cos(point.phase) * drift;
+        pos[base + 1] = point.oy + (point.y - point.oy) * settle + Math.sin(point.phase) * drift;
+        pos[base + 2] = settle;
+    }
+
+    octx.save();
+    octx.globalCompositeOperation = canvasTheme.isLight ? "source-over" : "lighter";
+
+    if (!prefersReducedMotion && constellation.links.length) {
+        const linkPulse = 0.24 + 0.16 * Math.sin(now * 0.0012);
+        octx.lineWidth = 0.75;
+        octx.shadowBlur = 0;
+        const links = constellation.links;
+        for (let l = 0; l < links.length; l += 1) {
+            const link = links[l];
+            const aBase = link.a * stride;
+            const bBase = link.b * stride;
+            const settle = pos[aBase + 2] < pos[bBase + 2] ? pos[aBase + 2] : pos[bBase + 2];
+            const pulse = linkPulse + 0.10 * Math.sin(now * 0.0024 + link.phase);
+            const alpha = (1 - link.dist / link.maxDist) * pulse * opacity * themeAlpha * settle;
+            if (alpha <= 0.01) continue;
+            octx.strokeStyle = `rgba(${rigidRgb},${alpha})`;
+            octx.beginPath();
+            octx.moveTo(pos[aBase], pos[aBase + 1]);
+            octx.lineTo(pos[bBase], pos[bBase + 1]);
+            octx.stroke();
+        }
+    }
+
+    octx.shadowColor = `rgba(${glowRgb},${canvasTheme.isLight ? 0.32 : 0.58})`;
+    octx.shadowBlur = canvasTheme.isLight ? 6 : 10;
+
+    for (let i = 0; i < count; i += 1) {
+        const point = points[i];
+        const shimmer = Math.sin(now * 0.0024 + point.phase) * 0.5 + 0.5;
+        const base = i * stride;
+        const x = pos[base];
+        const y = pos[base + 1];
+        const settle = pos[base + 2];
+        const alpha = opacity * wake * themeAlpha * (0.34 + shimmer * 0.42);
+        const radius = point.radius * (0.72 + shimmer * 0.34);
+
+        if (travelEnergy > 0.08 && i % 11 === 0) {
+            octx.strokeStyle = `rgba(${rigidRgb},${alpha * travelEnergy * 0.34})`;
+            octx.lineWidth = 1;
+            octx.beginPath();
+            octx.moveTo(x, y);
+            octx.lineTo(point.ox + (point.x - point.ox) * Math.max(0, settle - 0.08), point.oy + (point.y - point.oy) * Math.max(0, settle - 0.08));
+            octx.stroke();
+        }
+
+        octx.fillStyle = `rgba(${rigidRgb},${alpha})`;
+        octx.beginPath();
+        octx.arc(x, y, radius, 0, Math.PI * 2);
+        octx.fill();
+    }
+
+    octx.restore();
+}
+
 /* =========================
    WIREFRAME TEXT
 ========================= */
@@ -585,7 +947,7 @@ function drawWireframeText(opacity) {
     if (opacity <= 0) return;
     const strokeRgb = canvasTheme.isLight ? canvasTheme.textRgb : canvasTheme.accentRgb;
     const glowRgb = canvasTheme.isLight ? canvasTheme.heroGlowRgb : canvasTheme.accentRgb;
-    const heroLabel = "Cauanzera";
+    const heroLabel = HERO_LABEL;
     const textX = overlay.width / 2;
     const textY = overlay.height / 2;
     octx.save();
@@ -613,7 +975,7 @@ function drawWireframeText(opacity) {
     octx.strokeText(heroLabel, textX, textY);
 
     /* Efeito liquid text no título hero */
-    if (heroTextLiquidActive) {
+    if (heroTextLiquidActive && !prefersReducedMotion) {
         const elapsed = Date.now() - heroLiquidStartTime;
         const rawProgress = (elapsed % HERO_LIQUID_DURATION) / HERO_LIQUID_DURATION;
         const progress = 1 - Math.pow(1 - rawProgress, 5);
@@ -711,9 +1073,15 @@ function animate() {
 
         renderStars();
         if (octx && overlay) {
+            const now = performance.now();
             octx.clearRect(0, 0, overlay.width, overlay.height);
             drawMouseNetwork();
-            drawWireframeText(heroOpacity);
+            drawHeroIgnition(heroOpacity, now);
+            drawHeroConstellation(heroOpacity, now);
+            const wireframeReveal = prefersReducedMotion
+                ? 1
+                : clamp01((now - heroConstellationStart - 920) / 920);
+            drawWireframeText(heroOpacity * wireframeReveal);
         }
     } catch (err) {
         showFatalError(err);
@@ -728,7 +1096,6 @@ animate();
    PROJETOS + CARDS
 ========================= */
 const projects = document.getElementById("projects");
-const projectCards = document.querySelectorAll(".project-card");
 const hoverAudioEligible = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 let lastHoverAt = 0;
 const HOVER_COOLDOWN = 140;
@@ -759,19 +1126,22 @@ const projectsGrid = document.querySelector('.projects-grid');
 function setupMarquee() {
     if (!marqueeTrack) return;
     const cards = Array.from(marqueeTrack.children);
+    const loadableCards = cards.filter(card => card.dataset.emptyProject !== "true");
 
-    /* Adiciona estado de loading (skeleton shimmer) */
-    cards.forEach(card => card.classList.add("loading"));
+    /* Adiciona skeleton apenas em cards reais com imagem. */
+    loadableCards.forEach(card => card.classList.add("loading"));
 
     cards.forEach(card => {
         const clone = card.cloneNode(true);
         marqueeTrack.appendChild(clone);
     });
 
+    if (!loadableCards.length) return;
+
     /* Remove loading quando as imagens tiverem carregado */
     let loadedCount = 0;
-    const total = cards.length;
-    cards.forEach(card => {
+    const total = loadableCards.length;
+    loadableCards.forEach(card => {
         const bg = window.getComputedStyle(card.querySelector(".card-front")).backgroundImage;
         const match = bg.match(/url\(["']?([^"')]+)["']?\)/);
         if (match) {
@@ -809,6 +1179,10 @@ if (marqueeTrack) {
     marqueeTrack.addEventListener('click', e => {
         const card = e.target.closest('.project-card');
         if (!card) return;
+        if (card.dataset.emptyProject === "true") {
+            e.preventDefault();
+            return;
+        }
         if (!projects || projects.classList.contains('hidden') || document.body.classList.contains('is-transitioning')) {
             e.preventDefault();
             return;
@@ -825,6 +1199,7 @@ if (marqueeTrack) {
     marqueeTrack.addEventListener('mouseover', e => {
         const card = e.target.closest('.project-card');
         if (!card) return;
+        if (card.dataset.emptyProject === "true") return;
         const related = e.relatedTarget;
         if (related && card.contains(related)) return;
 
@@ -908,14 +1283,6 @@ window.addEventListener("scroll", () => {
     }
 
     // Scroll circular desativado temporariamente
-
-    if (ignoreNextImpulse) {
-        ignoreNextImpulse = false;
-        lastScrollY = window.scrollY;
-        lastScrollT = performance.now();
-        scrollImpulseTarget = 0;
-        return;
-    }
 
     if (starsFreeze ||
         starCinematicLock ||
@@ -1009,6 +1376,7 @@ const focusVignette = document.getElementById("focusVignette");
 
 let activeCard = null;
 let activeProject = null;
+let lastProjectFocus = null;
 let tiltActive = false;
 let tiltFrame = null;
 let tiltTargetRx = 0;
@@ -1052,11 +1420,19 @@ const extractProjectData = (card) => {
  */
 const setProjectViewContent = (data) => {
     if (!projectView) return;
-    if (projectHero) projectHero.style.backgroundImage = data.image || "none";
+    if (projectHero) {
+        projectHero.style.backgroundImage = data.image || "none";
+        projectHero.setAttribute("aria-label", data.title ? `Capa do projeto ${data.title}` : "Capa do projeto");
+    }
     if (projectTitle) projectTitle.textContent = data.title || "Projeto";
     if (projectDesc) projectDesc.textContent = data.desc || "";
     if (projectTechTitle) projectTechTitle.textContent = data.techTitle || "Tecnologias";
     if (projectTechDesc) projectTechDesc.textContent = data.techDesc || "";
+    if (projectVisit) {
+        const hasHref = Boolean(data.href && data.href !== "#");
+        projectVisit.disabled = !hasHref;
+        projectVisit.hidden = !hasHref;
+    }
 };
 
 /**
@@ -1151,6 +1527,47 @@ const stopPanelTilt = () => {
     projectPanel.style.setProperty("--py", "0px");
 };
 
+const getProjectFocusableControls = () => {
+    if (!projectPanel) return [];
+    const selector = [
+        "a[href]",
+        "button:not([disabled])",
+        "input:not([disabled])",
+        "select:not([disabled])",
+        "textarea:not([disabled])",
+        "[tabindex]:not([tabindex='-1'])"
+    ].join(",");
+
+    return Array.from(projectPanel.querySelectorAll(selector))
+        .filter((el) => {
+            const style = getComputedStyle(el);
+            return !el.hidden && style.display !== "none" && style.visibility !== "hidden";
+        });
+};
+
+const trapProjectFocus = (event) => {
+    if (!projectPanel) return;
+
+    const controls = getProjectFocusableControls();
+    if (!controls.length) {
+        event.preventDefault();
+        projectPanel.focus();
+        return;
+    }
+
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+    }
+};
+
 
 
 /**
@@ -1159,6 +1576,7 @@ const stopPanelTilt = () => {
  * @param {Element} card
  */
 const applyOpenProject = (card) => {
+    lastProjectFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     activeCard = card;
     activeProject = extractProjectData(card);
     setProjectViewContent(activeProject);
@@ -1195,6 +1613,8 @@ const openProject = (card) => {
  * Fecha o projeto aberto e restaura o estado global da pagina.
  */
 const cleanupProjectState = () => {
+    const focusTarget = activeCard || lastProjectFocus;
+
     document.body.classList.remove("is-project-open", "modal-open");
     projectView?.classList.remove("is-open");
     projectView?.setAttribute("aria-hidden", "true");
@@ -1211,6 +1631,11 @@ const cleanupProjectState = () => {
     scrollImpulseTarget = 0;
     warpTarget = 0;
     warp = 0;
+    lastProjectFocus = null;
+
+    if (focusTarget && typeof focusTarget.focus === "function" && document.contains(focusTarget)) {
+        requestAnimationFrame(() => focusTarget.focus({ preventScroll: true }));
+    }
 };
 
 const closeProject = () => {
@@ -1234,13 +1659,9 @@ const visitProject = () => {
     if (!href) return;
 
     cleanupProjectState();
-    projectView?.classList.remove("is-open");
-    projectView?.setAttribute("aria-hidden", "true");
-    stopPanelTilt();
-    focusVignette?.classList.remove("is-on");
 
     if (targetBlank) {
-        window.open(href, "_blank");
+        window.open(href, "_blank", "noopener,noreferrer");
     } else {
         window.location.href = href;
     }
@@ -1269,8 +1690,13 @@ projectBack?.addEventListener("click", () => {
 projectVisit?.addEventListener("click", visitProject);
 
 window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && projectView?.classList.contains("is-open")) {
+    if (!projectView?.classList.contains("is-open")) return;
+
+    if (e.key === "Escape") {
+        e.preventDefault();
         closeProject();
+    } else if (e.key === "Tab") {
+        trapProjectFocus(e);
     }
 });
 
@@ -1295,14 +1721,46 @@ document.addEventListener("visibilitychange", () => {
   const nav = document.querySelector(".half-ring-nav");
   const checkbox = document.getElementById("halfRingToggle");
   const links = nav?.querySelectorAll("[data-nav]");
+  const toggle = nav?.querySelector(".half-ring-nav__toggle");
+  const menu = document.getElementById("halfRingMenu");
   if (!nav || !checkbox) return;
 
-  const coarseQuery = window.matchMedia("(hover: none), (pointer: coarse)");
-  const fineQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
-  // isCoarse removido — não utilizado
+
+  const syncMenuState = () => {
+    const isOpen = checkbox.checked;
+    toggle?.setAttribute("aria-expanded", String(isOpen));
+    toggle?.setAttribute("aria-label", isOpen ? "Fechar menu" : "Abrir menu");
+    menu?.setAttribute("aria-hidden", String(!isOpen));
+    links?.forEach((el) => el.setAttribute("tabindex", isOpen ? "0" : "-1"));
+  };
 
   /** Fecha o menu desmarcando o checkbox */
-  const closeMenu = () => { checkbox.checked = false; };
+  const closeMenu = (restoreFocus = false) => {
+    checkbox.checked = false;
+    syncMenuState();
+    if (restoreFocus) toggle?.focus();
+  };
+
+  const moveFocus = (current, direction) => {
+    const items = Array.from(links || []);
+    if (!items.length) return;
+    const currentIndex = items.indexOf(current);
+    const nextIndex = currentIndex < 0
+      ? 0
+      : (currentIndex + direction + items.length) % items.length;
+    items[nextIndex].focus();
+  };
+
+  syncMenuState();
+  checkbox.addEventListener("change", syncMenuState);
+
+  toggle?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    checkbox.checked = !checkbox.checked;
+    syncMenuState();
+    if (checkbox.checked) links?.[0]?.focus();
+  });
 
   // Fecha ao clicar no backdrop ou fora do nav
   document.addEventListener("pointerdown", (e) => {
@@ -1316,7 +1774,7 @@ document.addEventListener("visibilitychange", () => {
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (!checkbox.checked) return;
-    closeMenu();
+    closeMenu(true);
   });
 
   /** Navegação entre seções */
@@ -1326,29 +1784,44 @@ document.addEventListener("visibilitychange", () => {
     else if (key === "contato") window.scrollTo({ top: yContato, behavior: "smooth" });
     else if (key === "projects") window.scrollTo({ top: yProjects, behavior: "smooth" });
     else if (key === "sound") { toggleSound(); }
-    else if (key === "theme") { window.scrollTo({ top: 0, behavior: "smooth" }); }
+    else if (key === "theme") { return; }
     else { window.scrollTo({ top: yHero, behavior: "smooth" }); }
+  };
+
+  const activateNavItem = (el, event) => {
+    event.preventDefault();
+    if (document.body.classList.contains("is-transitioning") ||
+        document.body.classList.contains("is-project-open")) {
+      try { playClickSfx(); } catch (_) {}
+      return;
+    }
+    const key = el.getAttribute("data-nav");
+    try { playClickSfx(); } catch (_) {}
+    scrollToSection(key);
+    closeMenu();
   };
 
   // Clique nos itens: navega + fecha o menu
   links?.forEach((el) => {
     el.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (document.body.classList.contains("is-transitioning") ||
-          document.body.classList.contains("is-project-open")) {
-        try { playClickSfx(); } catch (_) {}
-        return;
+      activateNavItem(el, e);
+    });
+
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        activateNavItem(el, e);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        moveFocus(el, 1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        moveFocus(el, -1);
       }
-      const key = el.getAttribute("data-nav");
-      try { playClickSfx(); } catch (_) {}
-      scrollToSection(key);
-      closeMenu();
     });
   });
 
   // Hover sfx no botão e links
-  const btn = nav.querySelector(".half-ring-nav__toggle");
-  btn?.addEventListener("mouseenter", playHoverSfx);
+  toggle?.addEventListener("mouseenter", playHoverSfx);
   links?.forEach((el) => el.addEventListener("mouseenter", playHoverSfx));
 
   // Boot loader — esconde a nav
@@ -1370,7 +1843,13 @@ document.addEventListener("visibilitychange", () => {
 
   const applyActiveSlice = (activeKey) => {
     links?.forEach((el) => {
-      el.classList.toggle("is-active", el.getAttribute("data-nav") === activeKey);
+      const isActive = el.getAttribute("data-nav") === activeKey;
+      el.classList.toggle("is-active", isActive);
+      if (isActive) {
+        el.setAttribute("aria-current", "page");
+      } else {
+        el.removeAttribute("aria-current");
+      }
     });
   };
 
@@ -1389,9 +1868,650 @@ document.addEventListener("visibilitychange", () => {
 })();
 
 /* =========================
+   COMMAND PALETTE
+========================= */
+(() => {
+  const palette = document.getElementById("commandPalette");
+  const backdrop = palette?.querySelector(".command-palette__backdrop");
+  const panel = palette?.querySelector(".command-palette__panel");
+  const input = document.getElementById("commandInput");
+  const output = document.getElementById("commandOutput");
+  const results = document.getElementById("commandResults");
+  const launcher = document.getElementById("commandLauncher");
+
+  if (!palette || !panel || !input || !output || !results) return;
+
+  let selectedIndex = 0;
+  let lastFocus = null;
+  let visibleCommands = [];
+  let terminalHistory = [];
+
+  const scrollToTarget = (key) => {
+    const [yHero, ySobre, yContato, yProjects] = getScrollTargets();
+    const targets = {
+      inicio: yHero,
+      sobre: ySobre,
+      contato: yContato,
+      projetos: yProjects
+    };
+    window.scrollTo({ top: targets[key] ?? yHero, behavior: "smooth" });
+  };
+
+  const normalizeCommand = (value) => value
+    .trim()
+    .replace(/^\//, "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const printLine = (text, variant = "") => {
+    terminalHistory.push({ text, variant });
+    terminalHistory = terminalHistory.slice(-30);
+    output.replaceChildren();
+
+    terminalHistory.forEach((line) => {
+      const row = document.createElement("div");
+      row.className = "command-palette__output-line";
+      if (line.variant) row.classList.add(`is-${line.variant}`);
+      row.textContent = line.text;
+      output.appendChild(row);
+    });
+
+    output.scrollTop = output.scrollHeight;
+  };
+
+  const openExternal = (href) => {
+    window.open(href, "_blank", "noopener,noreferrer");
+  };
+
+  const commands = [
+{
+      id: "help",
+      label: "help",
+      meta: "listar",
+      run: () => {
+        printLine("> help");
+        const helpLines = [
+          ["┌────────────────────────────────────────────┐", "secret"],
+          [" CAUANZERA OS :: help", "secret"],
+          ["├────────────────────────────────────────────┤", "secret"],
+          [" inicio   → topo da pagina", ""],
+          [" sobre    → seção sobre mim", ""],
+          [" projetos → projetos desenvolvidos", ""],
+          [" contato  → informações de contato", ""],
+          [" email    → abrir cliente de email", ""],
+          [" github   → abrir GitHub", ""],
+          [" linkedin → abrir LinkedIn", ""],
+          [" tema     → alternar tema", ""],
+          [" som      → ligar / desligar audio", ""],
+          [" clear    → limpar terminal", ""],
+          ["├────────────────────────────────────────────┤", "secret"],
+          [" alguns comandos nao aparecem no manual", "muted"],
+          [" segredos: matrix • scan • rose • cauanzera", "muted"],
+          ["└────────────────────────────────────────────┘", "secret"]
+        ];
+        const delay = prefersReducedMotion ? 0 : 28;
+        helpLines.forEach(([text, variant], index) => {
+          setTimeout(() => printLine(text, variant), index * delay);
+        });
+      }
+    },
+    { id: "inicio", label: "inicio", meta: "cd /", run: () => scrollToTarget("inicio") },
+    { id: "sobre", label: "sobre", meta: "cd sobre", run: () => scrollToTarget("sobre") },
+    { id: "contato", label: "contato", meta: "cd contato", run: () => scrollToTarget("contato") },
+    { id: "projetos", label: "projetos", meta: "cd projetos", run: () => scrollToTarget("projetos") },
+    {
+      id: "email",
+      label: "email",
+      meta: "mailto",
+      run: () => {
+        printLine("> email");
+        printLine("Abrindo cliente de email...");
+        window.location.href = "mailto:caua.pbritto@gmail.com";
+      }
+    },
+    { id: "github", label: "github", meta: "start", run: () => openExternal("https://github.com/cauapbritto") },
+    { id: "linkedin", label: "linkedin", meta: "start", run: () => openExternal("https://www.linkedin.com/in/cau%C3%A3-pedrozo-brito-8a685b358") },
+    { id: "tema", label: "tema", meta: "mode", run: () => document.getElementById("themeToggle")?.dispatchEvent(new MouseEvent("click", { bubbles: true })) },
+    { id: "som", label: "som", meta: "audio", run: () => toggleSound() },
+{
+      id: "clear",
+      label: "clear",
+      meta: "cls",
+      run: () => {
+        const lines = Array.from(output.querySelectorAll(".command-palette__output-line"));
+        if (!lines.length || prefersReducedMotion) {
+          terminalHistory = [];
+          printLine("CAUANZERA OS [versao portfolio]");
+          printLine("Digite help para listar comandos.", "muted");
+          return;
+        }
+        lines.forEach((line, index) => {
+          setTimeout(() => line.classList.add("is-fading"), index * 26);
+        });
+        const totalDelay = lines.length * 26 + 220;
+        setTimeout(() => {
+          terminalHistory = [];
+          printLine("CAUANZERA OS [versao portfolio]");
+          printLine("Digite help para listar comandos.", "muted");
+        }, totalDelay);
+      }
+    }
+  ];
+
+  const secretCommands = [
+    {
+      id: "matrix",
+      aliases: ["hack", "hacker"],
+      run: () => {
+        printLine("> matrix", "secret");
+        printLine("Inicializando interface...", "secret");
+        closePalette(false);
+        startMatrixRain();
+      }
+    },
+    {
+      id: "rose",
+      aliases: ["rosa"],
+      run: () => {
+        printLine("> rose", "secret");
+        printLine("Inicializando modo rosa...", "secret");
+        printLine("img_petalas.exe carregado", "secret");
+        printLine("SWEET MODE", "secret");
+        closePalette(false);
+        startRosePetals();
+      }
+    },
+    {
+      id: "cauanzera",
+      aliases: ["caua", "cauã"],
+      run: () => {
+        printLine("> cauanzera", "secret");
+        printLine("Arquivo encontrado: desenvolvedor_frontend_em_formacao.exe", "secret");
+        printLine("Status: construindo coisas bonitas que funcionam.", "secret");
+      }
+    },
+    {
+      id: "scan",
+      aliases: ["scan site", "scanner"],
+      run: () => {
+        printLine("> scan", "secret");
+        printLine("Escaneando interface...", "secret");
+
+        if (prefersReducedMotion) {
+          printScanResult();
+          return;
+        }
+
+        const scanLine = document.createElement("div");
+        scanLine.className = "scan-line";
+        document.body.appendChild(scanLine);
+        requestAnimationFrame(() => { scanLine.style.top = "100vh"; });
+
+        const barEl = document.createElement("div");
+        barEl.className = "command-palette__output-line is-muted";
+        barEl.textContent = "[░░░░░░░░░░░░░░░░░░░░] 0%";
+        output.appendChild(barEl);
+
+        const duration = 1500;
+        const totalBlocks = 20;
+        const start = performance.now();
+
+        const tick = (now) => {
+          const elapsed = now - start;
+          const progress = Math.min(elapsed / duration, 1);
+          const filled = Math.round(progress * totalBlocks);
+          const pct = Math.round(progress * 100);
+          barEl.textContent = `[${"█".repeat(filled)}${"░".repeat(totalBlocks - filled)}] ${pct}%`;
+          output.scrollTop = output.scrollHeight;
+
+          if (progress < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            scanLine.remove();
+            printScanResult();
+          }
+        };
+        requestAnimationFrame(tick);
+      }
+    }
+  ];
+
+  const printScanResult = () => {
+    printLine("Interface: OK", "");
+    printLine("Brilho: alto", "");
+    printLine("Bugs: 0", "");
+    printLine("Estilo: 100%", "");
+  };
+
+  const findCommand = (value) => {
+    const normalized = normalizeCommand(value);
+    return commands.find(command => command.id === normalized || command.label === normalized)
+      || secretCommands.find(command => command.id === normalized || command.aliases?.includes(normalized));
+  };
+
+  const isEditableTarget = (target) => {
+    if (!(target instanceof HTMLElement)) return false;
+    return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+  };
+
+  const syncSelection = () => {
+    results.querySelectorAll(".command-palette__option").forEach((option, index) => {
+      option.classList.toggle("is-selected", index === selectedIndex);
+      option.setAttribute("aria-selected", String(index === selectedIndex));
+    });
+  };
+
+  const renderCommands = () => {
+    const query = normalizeCommand(input.value);
+    visibleCommands = commands.filter((command) => {
+      if (!query) return false;
+      return command.id.includes(query) || command.label.includes(query);
+    });
+
+    selectedIndex = Math.min(selectedIndex, Math.max(visibleCommands.length - 1, 0));
+    results.replaceChildren();
+
+    visibleCommands.forEach((command, index) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.className = "command-palette__option";
+      option.setAttribute("role", "option");
+      option.setAttribute("aria-selected", String(index === selectedIndex));
+      option.dataset.commandId = command.id;
+
+      const label = document.createElement("span");
+      label.textContent = `> ${command.label}`;
+
+      const key = document.createElement("span");
+      key.className = "command-palette__key";
+      key.textContent = command.meta;
+
+      option.append(label, key);
+      option.addEventListener("mouseenter", () => {
+        selectedIndex = index;
+        syncSelection();
+      });
+      option.addEventListener("click", () => executeCommand(index));
+      results.appendChild(option);
+    });
+
+    syncSelection();
+  };
+
+  const closePalette = (restoreFocus = true) => {
+    palette.classList.remove("is-open");
+    palette.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-command-open");
+    input.value = "";
+    selectedIndex = 0;
+    renderCommands();
+
+    if (restoreFocus && lastFocus && document.contains(lastFocus)) {
+      requestAnimationFrame(() => lastFocus.focus({ preventScroll: true }));
+    }
+    lastFocus = null;
+  };
+
+  const openPalette = () => {
+    if (palette.classList.contains("is-open")) return;
+    lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    palette.classList.add("is-open");
+    palette.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-command-open");
+    input.value = "";
+    selectedIndex = 0;
+    if (!terminalHistory.length) {
+      printLine("CAUANZERA OS [versao portfolio]");
+      printLine("Digite help para listar comandos.", "muted");
+    }
+    renderCommands();
+    requestAnimationFrame(() => input.focus());
+  };
+
+  function executeCommand(index = selectedIndex) {
+    const typed = input.value;
+    const command = typed.trim() ? findCommand(typed) : visibleCommands[index];
+    if (!command) {
+      playClickSfx();
+      printLine(`> ${typed.trim()}`);
+      printLine("Comando nao reconhecido. Tente help.", "muted");
+      input.value = "";
+      selectedIndex = 0;
+      renderCommands();
+      return;
+    }
+    playClickSfx();
+    const keepOpen = ["help", "clear", ...secretCommands.map(item => item.id)].includes(command.id);
+    if (!keepOpen) closePalette(false);
+    command.run();
+    if (keepOpen) {
+      input.value = "";
+      selectedIndex = 0;
+      renderCommands();
+    }
+  }
+
+  const getPaletteFocusableControls = () => Array.from(panel.querySelectorAll("input, button"))
+    .filter((el) => {
+      const style = getComputedStyle(el);
+      return !el.hidden && style.display !== "none" && style.visibility !== "hidden";
+    });
+
+  panel.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePalette();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const controls = getPaletteFocusableControls();
+    if (!controls.length) return;
+
+    const first = controls[0];
+    const last = controls[controls.length - 1];
+    const active = document.activeElement;
+
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  input.addEventListener("input", () => {
+    selectedIndex = 0;
+    renderCommands();
+  });
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closePalette();
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      selectedIndex = (selectedIndex + 1) % Math.max(visibleCommands.length, 1);
+      syncSelection();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      selectedIndex = (selectedIndex - 1 + Math.max(visibleCommands.length, 1)) % Math.max(visibleCommands.length, 1);
+      syncSelection();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      executeCommand();
+    }
+  });
+
+  backdrop?.addEventListener("click", () => closePalette());
+  launcher?.addEventListener("click", () => {
+    playClickSfx();
+    palette.classList.remove("is-maximized");
+    openPalette();
+  });
+  launcher?.addEventListener("mouseenter", playHoverSfx);
+
+  const winMin = panel.querySelector(".win-min");
+  const winMax = panel.querySelector(".win-max");
+  const winClose = panel.querySelector(".win-close");
+
+  winMin?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    playClickSfx();
+    palette.classList.remove("is-open");
+    palette.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-command-open");
+    input.value = "";
+    selectedIndex = 0;
+    renderCommands();
+    if (lastFocus && document.contains(lastFocus)) {
+      requestAnimationFrame(() => lastFocus.focus({ preventScroll: true }));
+    }
+    lastFocus = null;
+  });
+
+  winMax?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    playClickSfx();
+    palette.classList.toggle("is-maximized");
+  });
+
+  winClose?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    playClickSfx();
+    terminalHistory = [];
+    closePalette();
+  });
+
+document.addEventListener("keydown", (event) => {
+    if (document.body.classList.contains("matrix-active")) return;
+    if (document.body.classList.contains("rose-active")) return;
+    if (document.body.classList.contains("is-project-open")) return;
+    if (palette.classList.contains("is-open")) return;
+
+    const key = event.key.toLowerCase();
+    const modifierOpen = (event.ctrlKey || event.metaKey) && key === "k";
+    const slashOpen = key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditableTarget(event.target);
+
+    if (!modifierOpen && !slashOpen) return;
+
+    event.preventDefault();
+    openPalette();
+  });
+
+  renderCommands();
+})();
+
+const MATRIX_CHARS = "アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ{}[]<>/\\*+-=#$%&".split("");
+
+const startMatrixRain = () => {
+  const canvas = document.getElementById("matrixCanvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+
+  const resize = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+  resize();
+  window.addEventListener("resize", resize);
+
+  const fontSize = 16;
+  const columns = Math.ceil(canvas.width / fontSize);
+  const drops = Array.from({ length: columns }, () =>
+    Math.floor(Math.random() * -100)
+  );
+
+  document.body.classList.add("matrix-active");
+  document.body.classList.add("terminal-matrix");
+
+  let rafId = null;
+  let stopped = false;
+
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    cancelAnimationFrame(rafId);
+    window.removeEventListener("resize", resize);
+    document.body.classList.remove("matrix-active");
+    document.body.classList.remove("terminal-matrix");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handleKey = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      stop();
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("click", handleClick);
+      printLine("Processo encerrado.", "muted");
+    }
+  };
+
+  const handleClick = () => {
+    stop();
+    document.removeEventListener("keydown", handleKey);
+    document.removeEventListener("click", handleClick);
+    printLine("Processo encerrado.", "muted");
+  };
+
+  document.addEventListener("keydown", handleKey);
+  document.addEventListener("click", handleClick);
+
+  const draw = () => {
+    const accent = canvasTheme.isLight ? "#3bbfbf" : "#00ffff";
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = `${fontSize}px monospace`;
+
+    for (let i = 0; i < drops.length; i += 1) {
+      const char = MATRIX_CHARS[Math.floor(Math.random() * MATRIX_CHARS.length)];
+      ctx.fillStyle = accent;
+      ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i] += 1;
+    }
+
+    if (!stopped) rafId = requestAnimationFrame(draw);
+  };
+
+  draw();
+};
+
+
+/* =========================
+   ROSE PETAL RAIN
+========================= */
+const startRosePetals = () => {
+  const canvas = document.getElementById("roseCanvas");
+  if (!canvas) return;
+
+  if (prefersReducedMotion) {
+    document.body.classList.add("terminal-rose");
+    setTimeout(() => document.body.classList.remove("terminal-rose"), 3200);
+    return;
+  }
+
+  const ctx = canvas.getContext("2d");
+  const roseRgb = canvasTheme.roseRgb || "255, 120, 150";
+
+  const resize = () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  };
+  resize();
+  window.addEventListener("resize", resize);
+
+  const petalCount = Math.min(60, Math.max(30, Math.floor(canvas.width / 16)));
+  const petals = Array.from({ length: petalCount }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * -canvas.height,
+    speedY: 0.6 + Math.random() * 1.6,
+    sway: 20 + Math.random() * 50,
+    phase: Math.random() * Math.PI * 2,
+    swaySpeed: 0.005 + Math.random() * 0.008,
+    size: 4 + Math.random() * 7,
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.04,
+    alpha: 0.5 + Math.random() * 0.5
+  }));
+
+  document.body.classList.add("rose-active");
+  document.body.classList.add("terminal-rose");
+
+  const maxDuration = 10000;
+  const fadeDuration = 1600;
+  const startTime = performance.now();
+  let rafId = null;
+  let stopped = false;
+
+  const cleanup = () => {
+    if (stopped) return;
+    stopped = true;
+    cancelAnimationFrame(rafId);
+    window.removeEventListener("resize", resize);
+    document.body.classList.remove("rose-active");
+    document.body.classList.remove("terminal-rose");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  const handleKey = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c") {
+      event.preventDefault();
+      cleanup();
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("click", handleClick);
+    }
+  };
+
+  const handleClick = () => {
+    cleanup();
+    document.removeEventListener("keydown", handleKey);
+    document.removeEventListener("click", handleClick);
+  };
+
+  document.addEventListener("keydown", handleKey);
+  document.addEventListener("click", handleClick);
+
+  const drawPetal = (p, fade) => {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${roseRgb},${(p.alpha * fade).toFixed(3)})`;
+    ctx.fill();
+    ctx.restore();
+  };
+
+  const draw = () => {
+    const now = performance.now();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const timeLeft = maxDuration - (now - startTime);
+    const fade = Math.max(0, Math.min(1, timeLeft / fadeDuration));
+
+    petals.forEach((p) => {
+      p.y += p.speedY;
+      p.x += Math.sin(now * p.swaySpeed + p.phase) * p.sway * 0.02;
+      p.rot += p.rotSpeed;
+
+      if (p.y - p.size > canvas.height) {
+        p.y = -p.size;
+        p.x = Math.random() * canvas.width;
+      }
+
+      drawPetal(p, fade);
+    });
+
+    if (now - startTime >= maxDuration) {
+      cleanup();
+      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("click", handleClick);
+      return;
+    }
+
+    rafId = requestAnimationFrame(draw);
+  };
+
+  draw();
+};
+
+
+/* =========================
    HERO TEXT LIQUID EFFECT
 ========================= */
 (() => {
+  if (prefersReducedMotion) return;
+
   const EFFECT_INTERVAL = 3000;  // 3 segundos entre efeitos
   // Reusa HERO_LIQUID_DURATION do escopo do módulo
   let heroLiquidTimer = null;

@@ -1,8 +1,10 @@
 {
   "name": "cauanzera — Portfólio",
   "short_name": "cauanzera",
-  "description": "Portfólio de Cauã Pedrozo Brito",
-  "start_url": "./index.html",
+  "description": "Portfólio de Cauã Pedrozo Brito — experiências visuais e interfaces imersivas.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",

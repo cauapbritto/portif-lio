@@ -81,10 +81,10 @@
    - Solução: Cache ou função centralizada visitada por scroll, snap e navbar
    - Gain: Evita inconsistências, manutenção facilitada
 
-3. **Audio Manager em Produção**
-   - `audio-manager.js` é mais robusto (`AudioManager` class) que o sistema legado em `script.js`
-   - Ambos coexistem; dever migrar completamente para `AudioManager` apenas
-   - Reduz duplicação, unifica controles
+3. **Audio Manager dedicado**
+   - O áudio ainda vive dentro de `script.js`
+   - Próximo passo: extrair ambiente, SFX, persistência e estados ARIA para um módulo dedicado
+   - Reduz acoplamento e deixa `script.js` menos carregado
 
 #### Médio Impacto
 4. **Tipagem TypeScript** (opcional)
@@ -141,4 +141,4 @@
 - **Performance:** Melhorada - remoção de ~97 linhas de renderização de bloom
 
 ### Recomendação Final
-**Projeto pronto para produção.** Sugerir implementação de audio-manager.js como padrão único e refatoração de thresholds de scroll como próximas melhorias.
+**Projeto pronto para evolução gradual.** Próximas melhorias naturais: extrair um módulo de áudio, separar a renderização canvas e centralizar os thresholds de scroll.

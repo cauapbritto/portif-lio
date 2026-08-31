@@ -65,10 +65,26 @@
         const btn = document.getElementById("themeToggle");
         if (!btn) return;
 
-        btn.addEventListener("click", () => {
+        const syncToggleA11y = () => {
+            const current = HTML.getAttribute("data-theme") || DARK;
+            btn.setAttribute("aria-pressed", String(current === LIGHT));
+            btn.setAttribute("aria-label", current === DARK ? "Ativar tema claro" : "Ativar tema escuro");
+        };
+
+        const toggleTheme = () => {
             const current = HTML.getAttribute("data-theme") || DARK;
             applyTheme(current === DARK ? LIGHT : DARK, true);
+            syncToggleA11y();
+        };
+
+        btn.addEventListener("click", toggleTheme);
+        btn.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            toggleTheme();
         });
+
+        syncToggleA11y();
     }
 
     if (document.readyState === "loading") {

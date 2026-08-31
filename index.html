@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>cauanzera</title>
+    <title>Cauã Pedrozo Brito | Portfólio</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#000000">
     <meta name="description" content="Portfólio de Cauã Pedrozo Brito — desenvolvedor focado em experiências visuais e interfaces imersivas.">
@@ -11,9 +11,12 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://cauapbritto.github.io/portif-lio">
     <meta property="og:image" content="https://cauapbritto.github.io/portif-lio/assets/img/projetos/ecopontos.png">
+    <meta property="og:site_name" content="cauanzera">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="cauanzera — Portfólio">
     <meta name="twitter:description" content="Portfólio de Cauã Pedrozo Brito — desenvolvedor focado em experiências visuais e interfaces imersivas.">
+    <meta name="twitter:image" content="https://cauapbritto.github.io/portif-lio/assets/img/projetos/ecopontos.png">
+    <link rel="canonical" href="https://cauapbritto.github.io/portif-lio">
     <link rel="preload" href="./assets/fonts/ZeroHour.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="./assets/cursor/cursor-ready-small.png" as="image">
     <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
@@ -24,6 +27,8 @@
         "@type": "Person",
         "name": "Cauã Pedrozo Brito",
         "alternateName": "cauanzera",
+        "jobTitle": "Desenvolvedor front-end em formação",
+        "email": "mailto:caua.pbritto@gmail.com",
         "url": "https://cauapbritto.github.io/portif-lio",
         "sameAs": [
             "https://github.com/cauapbritto",
@@ -44,9 +49,9 @@
 
 <header>
 <nav class="half-ring-nav" aria-label="Navegação principal" role="navigation">
-  <input type="checkbox" id="halfRingToggle" class="half-ring-nav__checkbox">
+  <input type="checkbox" id="halfRingToggle" class="half-ring-nav__checkbox" aria-hidden="true" tabindex="-1">
   
-  <label for="halfRingToggle" class="half-ring-nav__toggle" aria-label="Abrir menu">
+  <label for="halfRingToggle" class="half-ring-nav__toggle" role="button" tabindex="0" aria-label="Abrir menu" aria-controls="halfRingMenu" aria-expanded="false">
     <span class="half-ring-nav__icon">
       <span class="half-ring-nav__moon" aria-hidden="true">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="var(--bg)" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -62,7 +67,7 @@
   <div class="half-ring-nav__backdrop"></div>
   <div class="half-ring-nav__sweep"></div>
   
-  <svg class="half-ring-nav__svg" viewBox="-125 -125 250 125" aria-hidden="true">
+  <svg id="halfRingMenu" class="half-ring-nav__svg" viewBox="-125 -125 250 125" role="group" aria-label="Atalhos de navegação" aria-hidden="true">
     <defs>
       <symbol id="icon-sobre" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></symbol>
       <symbol id="icon-contato" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 4l10 9 10-9"/></symbol>
@@ -90,27 +95,27 @@
       </clipPath>
     </defs>
     
-    <g class="half-ring-nav__slice" data-nav="sobre" style="--i: 0">
+    <g class="half-ring-nav__slice" data-nav="sobre" role="button" tabindex="-1" aria-label="Ir para Sobre" style="--i: 0">
       <path d="M-115,0 A115,115 0 0,1 -93,-67.6 L-44.5,-32.3 A55,55 0 0,0 -55,0 Z"/>
       <use class="half-ring-nav__slice-icon" href="#icon-sobre" x="-99" y="-38" width="16" height="16"/>
       <text class="half-ring-nav__slice-label" x="-68" y="-22">Sobre</text>
     </g>
-    <g class="half-ring-nav__slice" data-nav="contato" style="--i: 1">
+    <g class="half-ring-nav__slice" data-nav="contato" role="button" tabindex="-1" aria-label="Ir para Contato" style="--i: 1">
       <path d="M-93,-67.6 A115,115 0 0,1 -35.5,-109.4 L-17,-52.3 A55,55 0 0,0 -44.5,-32.3 Z"/>
       <use class="half-ring-nav__slice-icon" href="#icon-contato" x="-64" y="-86" width="16" height="16"/>
       <text class="half-ring-nav__slice-label" x="-42" y="-58">Contato</text>
     </g>
-    <g class="half-ring-nav__slice" data-nav="projects" style="--i: 2">
+    <g class="half-ring-nav__slice" data-nav="projects" role="button" tabindex="-1" aria-label="Ir para Projetos" style="--i: 2">
       <path d="M-35.5,-109.4 A115,115 0 0,1 35.5,-109.4 L17,-52.3 A55,55 0 0,0 -17,-52.3 Z"/>
       <use class="half-ring-nav__slice-icon" href="#icon-projetos" x="-8" y="-104" width="16" height="16"/>
       <text class="half-ring-nav__slice-label" x="0" y="-72">Projetos</text>
     </g>
-    <g class="half-ring-nav__slice" data-nav="sound" style="--i: 3">
+    <g class="half-ring-nav__slice" data-nav="sound" role="button" tabindex="-1" aria-label="Alternar som" aria-pressed="true" style="--i: 3">
       <path d="M35.5,-109.4 A115,115 0 0,1 93,-67.6 L44.5,-32.3 A55,55 0 0,0 17,-52.3 Z"/>
       <use class="half-ring-nav__slice-icon" href="#icon-som" x="48" y="-86" width="16" height="16"/>
       <text class="half-ring-nav__slice-label" x="42" y="-58">Som</text>
     </g>
-    <g class="half-ring-nav__slice" data-nav="theme" id="themeToggle" style="--i: 4">
+    <g class="half-ring-nav__slice" data-nav="theme" id="themeToggle" role="button" tabindex="-1" aria-label="Alternar tema" style="--i: 4">
       <path d="M93,-67.6 A115,115 0 0,1 115,0 L55,0 A55,55 0 0,0 44.5,-32.3 Z"/>
       <g class="half-ring-nav__slice-icon-wrapper" id="themeIconWrapper">
         <use class="half-ring-nav__slice-icon" href="#icon-tema" x="83" y="-38" width="16" height="16"/>
@@ -155,92 +160,55 @@
             <!-- MARQUEE -->
             <div class="projects-grid">
               <div class="marquee-track stagger-2">
-               <a href="https://seuprojeto5.com" target="_blank" rel="noopener noreferrer" class="project-card">
+               <div class="project-card" data-empty-project="true" aria-hidden="true">
   <div class="card-inner">
-    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?5');">
-      <div class="overlay">
-        <h3>Mengão</h3>
-        <p>Imparável</p>
-      </div>
+    <div class="card-front">
+      <div class="overlay"></div>
     </div>
 
-    <div class="card-back">
-      <h3>Tecnologias</h3>
-      <p>Vue.js, Node.js, MongoDB</p>
-      <span class="hint">Clique para visitar</span>
-    </div>
+    <div class="card-back"></div>
   </div>
-</a>
+</div>
 
-<a href="https://cauapbritto.github.io/lixo-eletronico/"
-   target="_blank" rel="noopener noreferrer" class="project-card">
+<div class="project-card" data-empty-project="true" aria-hidden="true">
   <div class="card-inner">
-    <div class="card-front"
-         style="background-image: url('./assets/img/projetos/ecopontos.png');">
-      <div class="overlay">
-        <h3>EcoPontos</h3>
-        <p>Pontos de coleta de lixo eletrônico em Cuiabá</p>
-      </div>
+    <div class="card-front">
+      <div class="overlay"></div>
     </div>
 
-    <div class="card-back card-back--green">
-      <h3>Tecnologias</h3>
-      <p>JavaScript, CSS, HTML</p>
-      <span class="hint">Clique para visitar</span>
-    </div>
+    <div class="card-back"></div>
   </div>
-</a>
+</div>
 
-                <a href="https://seuprojeto2.com" target="_blank" rel="noopener noreferrer" class="project-card">
+                <div class="project-card" data-empty-project="true" aria-hidden="true">
   <div class="card-inner">
-    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?2');">
-      <div class="overlay">
-        <h3>Projeto Beta</h3>
-        <p>Não sobrou nada</p>
-      </div>
+    <div class="card-front">
+      <div class="overlay"></div>
     </div>
 
-    <div class="card-back">
-      <h3>Tecnologias</h3>
-      <p>React, CSS Modules</p>
-      <span class="hint">Clique para visitar</span>
-    </div>
+    <div class="card-back"></div>
   </div>
-</a>
+</div>
 
-                <a href="https://seuprojeto3.com" target="_blank" rel="noopener noreferrer" class="project-card">
+                <div class="project-card" data-empty-project="true" aria-hidden="true">
   <div class="card-inner">
-    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?3');">
-      <div class="overlay">
-        <h3>Gabigol</h3>
-        <p>Craque</p>
-      </div>
+    <div class="card-front">
+      <div class="overlay"></div>
     </div>
 
-    <div class="card-back">
-      <h3>Tecnologias</h3>
-      <p>Next.js, Tailwind CSS</p>
-      <span class="hint">Clique para visitar</span>
-    </div>
+    <div class="card-back"></div>
   </div>
-</a>
+</div>
 
-                <a href="https://seuprojeto4.com" target="_blank" rel="noopener noreferrer" class="project-card">
+                <div class="project-card" data-empty-project="true" aria-hidden="true">
   <div class="card-inner">
-    <div class="card-front" style="background-image: url('https://picsum.photos/600/400?4');">
-      <div class="overlay">
-        <h3>Tralalero</h3>
-        <p>Tralala</p>
-      </div>
+    <div class="card-front">
+      <div class="overlay"></div>
     </div>
 
-    <div class="card-back">
-      <h3>Tecnologias</h3>
-      <p>TypeScript, Firebase</p>
-      <span class="hint">Clique para visitar</span>
-    </div>
+    <div class="card-back"></div>
   </div>
-</a>
+</div>
               </div>
             </div>
 
@@ -261,7 +229,7 @@
     <section aria-label="Contato">
     <div id="contatoText" class="stack-item blur-text stagger-children">
         <h2 class="stagger-1">Contato</h2>
-        <p class="stagger-2">caua.pbritto@gmail.com</p>
+        <p class="stagger-2"><a class="contact-email" href="mailto:caua.pbritto@gmail.com">caua.pbritto@gmail.com</a></p>
 
         <div class="contact-cards stagger-3">
             <a href="https://github.com/cauapbritto" target="_blank" rel="noopener noreferrer" class="contact-card github-card" aria-label="GitHub">
@@ -303,15 +271,45 @@
 <!-- FOCUS VIGNETTE -->
 <div id="focusVignette" class="focus-vignette" aria-hidden="true"></div>
 
+<!-- COMMAND PALETTE -->
+<div id="commandPalette" class="command-palette" aria-hidden="true">
+    <div class="command-palette__backdrop" aria-hidden="true"></div>
+    <div class="command-palette__panel" role="dialog" aria-modal="true" aria-label="Terminal de navegação">
+        <div class="command-palette__titlebar">
+            <span aria-hidden="true">C:\CAUANZERA\PORTFOLIO.EXE</span>
+            <div class="command-palette__window-buttons">
+                <button type="button" class="win-btn win-min" aria-label="Minimizar">_</button>
+                <button type="button" class="win-btn win-max" aria-label="Maximizar">[]</button>
+                <button type="button" class="win-btn win-close" aria-label="Fechar">X</button>
+            </div>
+        </div>
+        <div id="commandOutput" class="command-palette__output" aria-live="polite"></div>
+        <label class="sr-only" for="commandInput">Comando</label>
+        <div class="command-palette__line">
+            <span class="command-palette__prompt" aria-hidden="true">C:\PORTFOLIO&gt;</span>
+            <input id="commandInput" class="command-palette__input" type="text" autocomplete="off" spellcheck="false" inputmode="text" placeholder="digite help">
+        </div>
+        <div id="commandResults" class="command-palette__results" role="listbox" aria-label="Comandos disponíveis"></div>
+    </div>
+</div>
+
 <!-- SCROLL -->
 <div class="scroll-spacer"></div>
 
 </main>
 
 
-<script src="script.js"></script>
 <button id="backToTop" class="back-to-top" aria-label="Voltar ao topo" type="button">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
 </button>
+<button id="commandLauncher" class="command-launcher" aria-label="Abrir terminal de navegação" type="button">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 17l5-5-5-5"/>
+        <path d="M12 19h8"/>
+    </svg>
+</button>
+<canvas id="matrixCanvas" aria-hidden="true"></canvas>
+<canvas id="roseCanvas" aria-hidden="true"></canvas>
+<script src="script.js"></script>
 </body>
 </html>
