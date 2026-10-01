@@ -643,6 +643,8 @@ function drawHeroIgnition(opacity, now) {
     octx.arc(cx, cy, maxRadius, 0, Math.PI * 2);
     octx.fill();
 
+    // Aneis e flare sem shadowBlur: o brilho deles era quase invisivel
+    // e o blur em areas grandes derrubava os FPS da intro.
     for (let i = 0; i < 3; i++) {
         const t = clamp01((elapsed - i * 180) / 1450);
         const ringAlpha = opacity * ignition * (1 - t) * (canvasTheme.isLight ? 0.16 : 0.28);
@@ -651,8 +653,6 @@ function drawHeroIgnition(opacity, now) {
         const radius = minSide * 0.06 + maxRadius * easeOutCubic(t);
         octx.strokeStyle = `rgba(${rgb},${ringAlpha})`;
         octx.lineWidth = 1 + (1 - t) * 2.2;
-        octx.shadowColor = `rgba(${glowRgb},${ringAlpha})`;
-        octx.shadowBlur = 16;
         octx.beginPath();
         octx.arc(cx, cy, radius, 0, Math.PI * 2);
         octx.stroke();
@@ -669,8 +669,6 @@ function drawHeroIgnition(opacity, now) {
 
     octx.strokeStyle = flare;
     octx.lineWidth = isMobileUI ? 1 : 1.5;
-    octx.shadowColor = `rgba(${glowRgb},${flareAlpha})`;
-    octx.shadowBlur = 22;
     octx.beginPath();
     octx.moveTo(cx - flareWidth / 2, cy);
     octx.lineTo(cx + flareWidth / 2, cy);
@@ -841,6 +839,44 @@ document.fonts?.ready?.then(() => {
     heroConstellationStart = performance.now();
 });
 
+/* Maior raio que um ponto da constelacao atinge (radius maximo * shimmer maximo). */
+const CONSTELLATION_DOT_MAX_RADIUS = isMobileUI ? 1.1 : 2.4;
+let constellationGlowSprite = null;
+
+/**
+ * Pre-renderiza o brilho de um ponto da constelacao num canvas pequeno.
+ * Usar shadowBlur em cada ponto (sao centenas), a cada frame, travava o navegador;
+ * com o sprite pronto, cada brilho vira um drawImage barato.
+ *
+ * @param {string} color cor da sombra (rgba)
+ * @param {number} blur mesmo valor que seria usado em shadowBlur
+ */
+function getConstellationGlowSprite(color, blur) {
+    const key = `${color}|${blur}`;
+    if (constellationGlowSprite?.key === key) return constellationGlowSprite;
+
+    const radius = CONSTELLATION_DOT_MAX_RADIUS;
+    const half = Math.ceil(blur * 1.5 + radius) + 1;
+    const size = half * 2;
+    const sprite = document.createElement("canvas");
+    sprite.width = size;
+    sprite.height = size;
+    const sctx = sprite.getContext("2d");
+    if (!sctx) return null;
+
+    // O ponto e desenhado fora do sprite; so a sombra deslocada cai no centro.
+    sctx.shadowColor = color;
+    sctx.shadowBlur = blur;
+    sctx.shadowOffsetX = size;
+    sctx.fillStyle = "#fff";
+    sctx.beginPath();
+    sctx.arc(half - size, half, radius, 0, Math.PI * 2);
+    sctx.fill();
+
+    constellationGlowSprite = { key, canvas: sprite, half, radius };
+    return constellationGlowSprite;
+}
+
 function drawHeroConstellation(opacity, now) {
     if (!octx || !overlay || opacity <= 0) return;
 
@@ -902,8 +938,9 @@ function drawHeroConstellation(opacity, now) {
         }
     }
 
-    octx.shadowColor = `rgba(${glowRgb},${canvasTheme.isLight ? 0.32 : 0.58})`;
-    octx.shadowBlur = canvasTheme.isLight ? 6 : 10;
+    const glowAlpha = canvasTheme.isLight ? 0.32 : 0.58;
+    const glow = getConstellationGlowSprite(`rgba(${glowRgb},${glowAlpha})`, canvasTheme.isLight ? 6 : 10);
+    octx.shadowBlur = 0;
 
     for (let i = 0; i < count; i += 1) {
         const point = points[i];
@@ -915,6 +952,7 @@ function drawHeroConstellation(opacity, now) {
         const alpha = opacity * wake * themeAlpha * (0.34 + shimmer * 0.42);
         const radius = point.radius * (0.72 + shimmer * 0.34);
 
+        // Rastros da intro: sem sombra (num traco de 1px ela era quase invisivel).
         if (travelEnergy > 0.08 && i % 11 === 0) {
             octx.strokeStyle = `rgba(${rigidRgb},${alpha * travelEnergy * 0.34})`;
             octx.lineWidth = 1;
@@ -922,6 +960,14 @@ function drawHeroConstellation(opacity, now) {
             octx.moveTo(x, y);
             octx.lineTo(point.ox + (point.x - point.ox) * Math.max(0, settle - 0.08), point.oy + (point.y - point.oy) * Math.max(0, settle - 0.08));
             octx.stroke();
+        }
+
+        // A sombra de um ponto pequeno escala com a area dele (raio²).
+        if (glow) {
+            const ratio = radius / glow.radius;
+            octx.globalAlpha = Math.min(1, alpha * ratio * ratio);
+            octx.drawImage(glow.canvas, x - glow.half, y - glow.half);
+            octx.globalAlpha = 1;
         }
 
         octx.fillStyle = `rgba(${rigidRgb},${alpha})`;
@@ -1247,12 +1293,22 @@ if (marqueeTrack && projectsGrid && isMobileUI) {
  *
  * @param {boolean} show
  */
+const PROJECTS_FADE_MS = 600; // mesmo tempo do transition de opacity de .projects
+let projectsLeaveTimer = null;
 const setProjectsVisibility = (show) => {
     if (!projects) return;
     if (show) {
-        projects.classList.remove("hidden");
+        clearTimeout(projectsLeaveTimer);
+        projects.classList.remove("hidden", "is-leaving");
         projects.classList.add("active");
     } else {
+        // .is-leaving mantem as animacoes dos cards rodando durante o fade-out;
+        // depois disso o CSS pausa tudo enquanto a secao estiver invisivel.
+        if (!projects.classList.contains("hidden")) {
+            projects.classList.add("is-leaving");
+            clearTimeout(projectsLeaveTimer);
+            projectsLeaveTimer = setTimeout(() => projects.classList.remove("is-leaving"), PROJECTS_FADE_MS);
+        }
         projects.classList.add("hidden");
         projects.classList.remove("active");
     }

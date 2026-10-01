@@ -666,6 +666,14 @@ h2,
     pointer-events: none !important;
 }
 
+/* Secao invisivel: pausa as animacoes infinitas dos cards, que recalculavam estilo a cada frame.
+   .is-leaving (JS) mantem tudo rodando durante o fade-out. */
+.projects.hidden:not(.is-leaving) *,
+.projects.hidden:not(.is-leaving) *::before,
+.projects.hidden:not(.is-leaving) *::after {
+    animation-play-state: paused !important;
+}
+
 .projects:not(.hidden) .project-card,
 .projects:not(.hidden) .project-card * {
     pointer-events: auto;
