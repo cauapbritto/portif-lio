@@ -1293,12 +1293,22 @@ if (marqueeTrack && projectsGrid && isMobileUI) {
  *
  * @param {boolean} show
  */
+const PROJECTS_FADE_MS = 600; // mesmo tempo do transition de opacity de .projects
+let projectsLeaveTimer = null;
 const setProjectsVisibility = (show) => {
     if (!projects) return;
     if (show) {
-        projects.classList.remove("hidden");
+        clearTimeout(projectsLeaveTimer);
+        projects.classList.remove("hidden", "is-leaving");
         projects.classList.add("active");
     } else {
+        // .is-leaving mantem as animacoes dos cards rodando durante o fade-out;
+        // depois disso o CSS pausa tudo enquanto a secao estiver invisivel.
+        if (!projects.classList.contains("hidden")) {
+            projects.classList.add("is-leaving");
+            clearTimeout(projectsLeaveTimer);
+            projectsLeaveTimer = setTimeout(() => projects.classList.remove("is-leaving"), PROJECTS_FADE_MS);
+        }
         projects.classList.add("hidden");
         projects.classList.remove("active");
     }
